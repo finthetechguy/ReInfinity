@@ -1,0 +1,80 @@
+const express = require("express");
+const fs = require("fs");
+const path = require("path");
+const crypto = require("crypto");
+
+const router = express.Router();
+const token = require("./token");
+
+router.use(express.json());
+router.use(express.urlencoded({ extended: true }));
+router.use(express.text({ type: "*/*", limit: "100kb" }));
+
+router.use((req, _res, next) => {
+  if (typeof req.body === "string" && req.body.trim().length) {
+    try {
+      req.body = JSON.parse(req.body);
+    } catch {
+      // leave as text; POST handler will handle
+    }
+  }
+  next();
+});
+
+function randomIntToken() {
+  return crypto.randomBytes(4).readUInt32BE(0);
+}
+
+// Sometimes a GET request is made, send 200 to tell client it's online
+router.get("/", (_req, res) => res.sendStatus(200));
+
+router.post("/", (req, res) => {
+
+  const { grant_type, username, password } = req.body;
+
+  if (grant_type !== "password") {
+    return res
+      .status(400)
+      .json({ code: "9999" });
+  }
+  if (!username || !password) {
+    return res
+      .status(400)
+      .json({ code: "100", name: "SECURITY.INVALID_USER" });
+  }
+
+  let users;
+  try {
+    users = token.loadUsers();
+  } catch (err) {
+    console.error("Failed to read DB:", err);
+    return res.status(500).json({ error: "server_error" });
+  }
+
+  const user = users.find(
+    (u) => (u.username || "").toLowerCase() === String(username).toLowerCase()
+  );
+  if (!user) return res.status(404).json({ code: "100", name: "SECURITY.INVALID_USER" });
+  if (user.password !== password) return res.status(401).json({ code: "100", name: "SECURITY.INVALID_USER" });
+
+  const allowedBands = ["CHILD", "TEEN", "ADULT"];
+  const ageBand = allowedBands.includes(user.ageBand) ? user.ageBand : "ADULT";
+
+  const access_token = randomIntToken();
+  const refresh_token = randomIntToken();
+
+  token.activeSessions[access_token] = user.username;
+
+  return res.json({
+    ageBand,
+    access_token,
+    refresh_token,
+    first_name: user.first_name || "",
+    last_name: user.last_name || "",
+    username: user.username,
+    displayName: user.displayName || user.first_name || user.username,
+    swid: user.swid ?? null,
+  });
+});
+
+module.exports = router;

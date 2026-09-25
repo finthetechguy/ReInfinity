@@ -1,0 +1,218 @@
+const express = require("express");
+const Busboy = require("busboy");
+const path = require("path");
+const fs = require("fs");
+const fsp = require('fs/promises');
+const zlib = require("zlib");
+const token = require("../authentication/token");
+const router = express.Router();
+
+const PUBLIC_PATH = path.join(__dirname, "..", "ugc", "public_toyboxes");
+const PUBLIC_FILE = path.join(__dirname, "public_toyboxes", "db.json");
+
+function looksLikeGzip(buf) {
+    return Buffer.isBuffer(buf) && buf.length >= 2 && buf[0] === 0x1f && buf[1] === 0x8b;
+}
+
+async function sendJson(filePath, res) {
+    try {
+        const data = await fsp.readFile(filePath, "utf8");
+        const json = JSON.parse(data);
+        res.json(json);
+    } catch (err) {
+        if (err.code === "ENOENT") {
+            return res.status(404);
+        }
+        console.error(err);
+        res.status(500);
+    }
+}
+
+router.get(["/public/in1/toybox", "/public/toybox"], async (req, res) => {
+    sendJson(PUBLIC_FILE, res);
+});
+
+router.get("/private/in1/toybox", token.authenticateToken, async (req, res) => {
+    const userTbPath = path.join(__dirname, "private_toyboxes", req.user.swid.toString());
+    const userDbPath = path.join(userTbPath, "db.json")
+    let exists = null;
+    
+    try {
+        const stats = await fsp.stat(userTbPath);
+        exists = stats.isDirectory();
+    } catch (err) {
+        if (err.code === "ENOENT") {
+            exists = false;
+            
+        } else {
+            console.error(err);
+            res.status(500);
+        }
+        
+    }
+
+    if (!exists) {
+        const dbContent = JSON.stringify({"page_size": 100, "page_count": 1, "total_items": 0, "items": []}, null, 2);
+
+        try {
+            await fsp.mkdir(userTbPath, { recursive: true });
+            await fsp.writeFile(userDbPath, dbContent, "utf8");
+        } catch (err) {
+            console.error(err);
+            res.status(500);
+        }
+    }
+
+    sendJson(userDbPath, res);
+});
+
+async function handleUpload(req, res, db, dir) {
+    const bb = Busboy({ headers: req.headers });
+    let meta = null;
+    let contentBuffer = null;
+
+    bb.on("file", (fieldname, stream, info) => {
+        if (fieldname !== "content") {
+            stream.resume();
+            return;
+        }
+        const chunks = [];
+        stream.on("data", (d) => chunks.push(d));
+        stream.on("end", () => { contentBuffer = Buffer.concat(chunks); });
+    });
+
+    bb.on("field", (name, val, info) => {
+        if (name === "contentInfo") {
+            try { meta = JSON.parse(val); } catch { meta = null; }
+        } else if (name === "content" && info.mimeType === "application/octet-stream") {
+            const enc = (info.encoding || "binary").toLowerCase();
+            contentBuffer = Buffer.from(val, enc === "binary" ? "binary" : "utf8");
+        }
+    });
+
+    bb.on("finish", async () => {
+    try {
+        if (!meta) return res.status(400).json({ error: "Missing or invalid JSON (contentInfo)" });
+        if (!contentBuffer || !looksLikeGzip(contentBuffer)) {
+            return res.status(415).json({ error: "Missing/invalid gzip (content)" });
+        }
+
+        const compSize = contentBuffer.length;
+        
+        let origSize;
+        try {
+            const raw = zlib.gunzipSync(contentBuffer);
+            origSize = raw.length;
+        } catch {
+            if (contentBuffer.length < 4) {
+                return res.status(415).json({ error: "Corrupt gzip (too small for ISIZE)" })
+            }
+            origSize = contentBuffer.readUInt32LE(contentBuffer.length - 4);
+        }
+
+        /// [1] Parse toybox info (contentInfo) JSON and add to public toybox database
+
+        // 'name' key is really the only important key, we use this to map to the world gzip location in server
+        if (!meta.name) return res.status(400).json({ error: "Missing 'name' key (contentInfo)" });
+        let cleanName = meta.name.replace(/\s+/g, '');
+
+        let attempts = 0;
+        while (true) {
+            try {
+                await sleep(1000);
+                await fs.access(db + cleanName);
+                attempts++;
+                cleanName = `${base}_${attempts}`;
+            } catch {
+               break; 
+            }
+        }
+
+        const toyboxInfo = {
+            _id: cleanName,
+            name: meta.name,
+            desc: meta.desc || "",
+            type: "game",
+            version: "1",
+            shared: "true",
+            user_can_like: "true"
+        }
+
+        fs.readFile(db, "utf8", (err, data) => {
+            if (err) return res.status(503);
+
+            let dbData = JSON.parse(data);
+            dbData.items.push(toyboxInfo);
+
+            fs.writeFile(db, JSON.stringify(dbData, null, 2), (writeErr) => {
+                if (writeErr) {
+                    console.error("[ugc/toybox] Failed to update database.");
+                    return res.status(503);
+                }
+            });
+        });
+
+        let creationTime = Math.floor(Date.now() / 1000);
+
+        await fsp.mkdir(dir, { recursive: true });
+        await fsp.writeFile(path.join(dir, cleanName), contentBuffer);
+        res.status(200).json(
+          { orig_size: origSize,
+            comp_size: compSize,
+            ugc_id: cleanName,
+            title: `${meta.name}`,
+            description: meta.description,
+            creator: meta.creator,
+            creation_time: creationTime }
+        );
+    } catch (e) {
+        console.error(e);
+        res.status(503);
+      }
+    });
+
+    req.pipe(bb);
+}
+
+router.post("/public/in1/toybox", (req, res) => {
+    handleUpload(req, res, PUBLIC_FILE, PUBLIC_PATH);
+});
+
+router.post("/private/in1/toybox", token.authenticateToken, (req, res) => {
+    const userTbPath = path.join(__dirname, "private_toyboxes", req.user.swid.toString());
+    const userDbPath = path.join(userTbPath, "db.json")
+
+    handleUpload(req, res, userDbPath, userTbPath);
+});
+
+function handleDownload(res, tb) {
+    fs.access(tb, fs.constants.F_OK, (err) => {
+        if (err) {
+            return res.status(404);
+        }
+
+        res.set({
+            "Content-Type": "application/gzip",
+            "Content-Disposition": 'attachment; filename="hi.gz"'
+        });
+
+        const readStream = fs.createReadStream(tb);
+        readStream.pipe(res);
+    });
+}
+
+router.get("/public/in1/toybox/:name", (req, res) => {
+    const fileName = req.params.name;
+    const filePath = path.join(PUBLIC_PATH, fileName);
+
+    handleDownload(res, filePath);
+})
+
+router.get("/private/in1/toybox/:name", token.authenticateToken, (req, res) => {
+    const userTbPath = path.join(__dirname, "private_toyboxes", req.user.swid.toString());
+    const userTb = path.join(userTbPath, req.params.name);
+
+    handleDownload(res, userTb);
+})
+
+module.exports = router;

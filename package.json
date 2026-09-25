@@ -1,0 +1,17 @@
+{
+  "name": "reinfinity",
+  "version": "1.0.0",
+  "description": "A WIP reimplemenation of the backend servers for Disney Infinity 1.0/2.0/3.0.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "finthetechguy",
+  "license": "ISC",
+  "dependencies": {
+    "busboy": "^1.6.0",
+    "express": "^5.1.0",
+    "multer": "^2.0.2",
+    "sqlite3": "^5.1.7"
+  }
+}

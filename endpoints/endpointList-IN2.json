@@ -1,0 +1,23 @@
+{
+  "url_inf_ticker": "http://192.168.0.18:3000/news/",
+  "url_inf_ugc": "http://192.168.0.18:3000/ugc/",
+  "url_inf_profile": "http://192.168.0.18:3000/profile/",
+  "url_inf_leaderboard": "http://192.168.0.18:3000/url_inf_leaderboard",
+  "url_inf_entitlement": "http://192.168.0.18:3000/profile",
+  "url_cg_did_create": "http://192.168.0.18:3000/url_cg_did_create",
+  "domain_cg_natneg": "http://192.168.0.18:3000/domain_cg_natneg",
+  "url_cg_friends": "http://192.168.0.18:3000/url_cg_friends",
+  "url_cdn_videos": "http://192.168.0.18:3000/url_cdn_videos",
+  "url_social_phrase_chat": "http://192.168.0.18:3000/url_social_phrase_chat",
+  "url_social_server_avatar": "http://192.168.0.18:3000/profile/avatar",
+  "url_cg_did_auth": "http://192.168.0.18:3000/auth/",
+  "url_cg_bi": "http://192.168.0.18:3000/url_cg_bi",
+  "url_cg_cleanspeak": "http://192.168.0.18:3000/url_cg_cleanspeak",
+  "url_cg_p2p_session": "http://192.168.0.18:3000/url_cg_p2p_session",
+  "url_activity_stream_social": "http://192.168.0.18:3000/url_activity_stream_social",
+  "url_activity_stream_icons": "http://192.168.0.18:3000/url_activity_stream_icons",
+  "url_activity_stream_links": "http://192.168.0.18:3000/url_activity_stream_links",
+  "url_social_like": "http://192.168.0.18:3000/url_social_like",
+  "url_geo_ip_locale": "http://192.168.0.18:3000/url_geo_ip_locale",
+  "url_geo_pixel": "http://192.168.0.18:3000/url_geo_pixel"
+}

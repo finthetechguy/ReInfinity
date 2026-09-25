@@ -1,0 +1,13 @@
+{
+  "users": [
+    {
+      "username": "ExampleUsername",
+      "password": "ExamplePassword",
+      "first_name": "John",
+      "last_name": "Doe",
+      "displayName": "John",
+      "ageBand": "ADULT",
+      "swid": 39293932
+    }
+  ]
+}
