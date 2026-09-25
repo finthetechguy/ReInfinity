@@ -4,6 +4,7 @@ const path = require("path");
 const fs = require("fs");
 const fsp = require("fs/promises");
 const zlib = require("zlib");
+const crypto = require("crypto");
 const token = require("../authentication/token");
 const { send } = require("process");
 const sqlite3 = require("sqlite3").verbose();
@@ -12,6 +13,32 @@ const router = express.Router();
 // Constants for public (Disney Toyboxes) toybox data
 const PUBLIC_PATH = path.join(__dirname, "..", "ugc", "public_toyboxes");
 const PUBLIC_DB = path.join(PUBLIC_PATH, "db.sqlite3")
+const PRIVATE_PATH = path.join(__dirname, "private_toyboxes");
+
+// Toybox IDs double as file names, so they may only contain characters that are safe in a path.
+const SAFE_ID = /^[A-Za-z0-9_-]{1,64}$/;
+const WINDOWS_RESERVED_NAME = /^(CON|PRN|AUX|NUL|COM\d|LPT\d)$/i;
+const SWID = /^\d{8}$/;
+
+function toSafeId(name) {
+    const id = String(name).replace(/[^A-Za-z0-9_-]/g, "").slice(0, 48);
+    if (!id || WINDOWS_RESERVED_NAME.test(id)) {
+        return crypto.randomBytes(6).toString("hex");
+    }
+    return id;
+}
+
+function getUserPaths(user) {
+    const swid = String(user.swid);
+    if (!SWID.test(swid)) return null;
+
+    const dir = path.join(PRIVATE_PATH, swid);
+    return { dir, dbPath: path.join(dir, "db.sqlite3") };
+}
+
+function sendInvalidUser(res) {
+    return res.status(403).json({ code: "100", name: "SECURITY.INVALID_USER" });
+}
 
 // Check if data has the header/magic of a gzip. Toybox level data is encoded this way.
 function isGzip(buf) {
@@ -180,6 +207,14 @@ async function getUniqueId(dbPath, base) {
     }
 }
 
+async function toyboxExists(dbPath, id) {
+    await createDb(dbPath);
+    const db = await openDb(dbPath);
+    const row = await getDb(db, `SELECT _id FROM toyboxes WHERE _id = ?`, [id]);
+    db.close();
+    return Boolean(row);
+}
+
 /// Read endpoints
 
 router.get(["/public/in1/toybox", "/public/toybox"], async (req, res) => {
@@ -188,11 +223,11 @@ router.get(["/public/in1/toybox", "/public/toybox"], async (req, res) => {
 
 router.get("/private/in1/toybox", token.authenticateToken, async (req, res) => {
     try {
-        const userTbPath = path.join(__dirname, "private_toyboxes", req.user.swid.toString());
-        const userDbPath = path.join(userTbPath, "db.sqlite3");
+        const userPaths = getUserPaths(req.user);
+        if (!userPaths) return sendInvalidUser(res);
 
-        await createDb(userDbPath);
-        await sendJson(userDbPath, req, res);
+        await createDb(userPaths.dbPath);
+        await sendJson(userPaths.dbPath, req, res);
     } catch (err) {
         console.error(err);
         res.status(500);
@@ -244,11 +279,8 @@ async function handleUpload(req, res, dbPath, dir) {
             }
 
             if (!meta.name) return res.status(400).json({ error: "Missing 'name' key (contentInfo)" });
-            let cleanName = meta.name.replace(/\s+/g, '');
-            const base = cleanName;
-
             await createDb(dbPath);
-            cleanName = await getUniqueId(dbPath, base);
+            const cleanName = await getUniqueId(dbPath, toSafeId(meta.name));
 
             const toyboxInfo = {
                 _id: cleanName,
@@ -303,13 +335,24 @@ router.post("/public/in1/toybox", (req, res) => {
 });
 
 router.post("/private/in1/toybox", token.authenticateToken, (req, res) => {
-    const userTbPath = path.join(__dirname, "private_toyboxes", req.user.swid.toString());
-    const userDbPath = path.join(userTbPath, "db.sqlite3");
+    const userPaths = getUserPaths(req.user);
+    if (!userPaths) return sendInvalidUser(res);
 
-    handleUpload(req, res, userDbPath, userTbPath);
+    handleUpload(req, res, userPaths.dbPath, userPaths.dir);
 });
 
-function handleDownload(res, tb) {
+// Only IDs listed in the toybox DB are served, so other files in the folder (like db.sqlite3) can't be downloaded.
+async function handleDownload(res, dbPath, dir, id) {
+    try {
+        if (!SAFE_ID.test(id) || !(await toyboxExists(dbPath, id))) {
+            return res.status(404).end();
+        }
+    } catch (err) {
+        console.error(err);
+        return res.status(500).end();
+    }
+
+    const tb = path.join(dir, id);
     fs.access(tb, fs.constants.F_OK, (err) => {
         if (err) return res.status(404).end();
 
@@ -324,37 +367,41 @@ function handleDownload(res, tb) {
 }
 
 router.get("/public/in1/toybox/:name", (req, res) => {
-    const fileName = req.params.name;
-    const filePath = path.join(PUBLIC_PATH, fileName);
-
-    handleDownload(res, filePath);
+    handleDownload(res, PUBLIC_DB, PUBLIC_PATH, req.params.name);
 });
 
 router.get("/private/in1/toybox/:name", token.authenticateToken, (req, res) => {
-    const userTbPath = path.join(__dirname, "private_toyboxes", req.user.swid.toString());
-    const userTb = path.join(userTbPath, req.params.name);
+    const userPaths = getUserPaths(req.user);
+    if (!userPaths) return sendInvalidUser(res);
 
-    handleDownload(res, userTb);
+    handleDownload(res, userPaths.dbPath, userPaths.dir, req.params.name);
 });
 
-async function handleDelete(res, dbPath, _id) {
+async function handleDelete(res, dbPath, dir, id) {
+    if (!SAFE_ID.test(id)) return res.status(404).end();
+
     try {
+        await createDb(dbPath);
         const db = await openDb(dbPath);
-        const insertSql = `DELETE FROM toyboxes WHERE _id = '${_id}';`;
-        await runDb(db, insertSql, []);
+        const result = await runDb(db, `DELETE FROM toyboxes WHERE _id = ?`, [id]);
+        db.close();
+
+        if (result.changes > 0) {
+            await fsp.rm(path.join(dir, id), { force: true });
+        }
     } catch (err) {
         console.error(err);
-        res.status(500).end();
+        return res.status(500).end();
     }
 
     res.status(204).end();
 }
 
 router.delete("/private/in1/toybox/:name", token.authenticateToken, (req, res) => {
-    const userTbPath = path.join(__dirname, "private_toyboxes", req.user.swid.toString());
-    const userDbPath = path.join(userTbPath, "db.sqlite3");
+    const userPaths = getUserPaths(req.user);
+    if (!userPaths) return sendInvalidUser(res);
 
-    handleDelete(res, userDbPath, req.params.name);
+    handleDelete(res, userPaths.dbPath, userPaths.dir, req.params.name);
 });
 
 module.exports = router;
