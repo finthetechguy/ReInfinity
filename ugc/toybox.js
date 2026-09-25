@@ -7,7 +7,7 @@ const zlib = require("zlib");
 const crypto = require("crypto");
 const token = require("../authentication/token");
 const { send } = require("process");
-const sqlite3 = require("sqlite3").verbose();
+const { openDb, runDb, getDb, allDb } = require("../db/sqlite");
 const router = express.Router();
 
 // Constants for public (Disney Toyboxes) toybox data
@@ -44,46 +44,6 @@ function sendInvalidUser(res) {
 function isGzip(buf) {
     return Buffer.isBuffer(buf) && buf.length >= 2 && buf[0] === 0x1f && buf[1] === 0x8b;
 }
-
-/// SQLite helpers
-
-function openDb(dbPath) {
-    return new Promise((resolve, reject) => {
-        const db = new sqlite3.Database(dbPath, (err) => {
-            if (err) return reject(err);
-            resolve(db);
-        });
-    });
-}
-
-function runDb(db, sql, params = []) {
-    return new Promise((resolve, reject) => {
-        db.run(sql, params, function (err) {
-            if (err) return reject(err);
-            resolve(this);
-        });
-    });
-}
-
-function getDb(db, sql, params = []) {
-    return new Promise((resolve, reject) => {
-        db.get(sql, params, (err, row) => {
-            if (err) return reject(err);
-            resolve(row);
-        });
-    });
-}
-
-function allDb(db, sql, params = []) {
-    return new Promise((resolve, reject) => {
-        db.all(sql, params, (err, rows) => {
-            if (err) return reject(err);
-            resolve(rows);
-        });
-    });
-}
-
-///
 
 // Creates a toybox database including it's folder if not already created.
 async function createDb(dbPath) {
