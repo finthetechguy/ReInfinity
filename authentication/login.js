@@ -22,10 +22,6 @@ router.use((req, _res, next) => {
   next();
 });
 
-function randomIntToken() {
-  return crypto.randomBytes(4).readUInt32BE(0);
-}
-
 // Sometimes a GET request is made, send 200 to tell client it's online
 router.get("/", (_req, res) => res.sendStatus(200));
 
@@ -58,8 +54,8 @@ router.post("/", async (req, res) => {
   const allowedBands = ["CHILD", "TEEN", "ADULT"];
   const ageBand = allowedBands.includes(user.ageBand) ? user.ageBand : "ADULT";
 
-  const access_token = randomIntToken();
-  const refresh_token = randomIntToken();
+  const access_token = token.randomIntToken();
+  const refresh_token = token.randomIntToken();
 
   token.activeSessions[access_token] = user.swid;
 

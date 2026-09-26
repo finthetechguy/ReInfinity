@@ -3,22 +3,17 @@ const users = require("../db/users");
 
 const router = express.Router();
 
+function getAgeBand(dob) {
+    const yearDif = new Date().getFullYear() - new Date(dob).getFullYear();
+    if (yearDif < 13) return "CHILD";
+    if (yearDif < 18) return "TEEN";
+    return "ADULT";
+}
+
 // Return the age group based on date of birth
 router.get("/compliance", (req, res) => {
-    // const countryCode = req.query.country-code;
-    const queryDate = new Date(req.query.dob);
-    const currentDate = new Date();
-    let calcAgeBand;
-
-    const yearDif = currentDate.getFullYear() - queryDate.getFullYear();
-
-    // TODO: Use month and day to make the calculation more accurate
-    if (yearDif < 13) { calcAgeBand = "CHILD"; }
-    else if (yearDif < 18) { calcAgeBand = "TEEN"; }
-    else { calcAgeBand = "ADULT"; }
-
     res.json({
-        ageBand: calcAgeBand
+        ageBand: getAgeBand(req.query.dob)
     });
 });
 
@@ -84,6 +79,7 @@ router.post("/create", async (req, res) => {
         return res.status(500).json({ code: "9999" });
     }
 
+    console.log(newUser);
     res.json(newUser);
 });
 

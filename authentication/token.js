@@ -1,9 +1,15 @@
 const express = require("express");
 const users = require("../db/users");
+const crypto = require("crypto");
+
 const router = express.Router();
 
 // Maps access token to swid
 const activeSessions = {};
+
+function randomIntToken() {
+    return crypto.randomBytes(4).readUInt32BE(0);
+}
 
 async function authenticateToken(req, res, next) {
     const authHeader = req.headers["authorization"];
@@ -41,5 +47,6 @@ async function authenticateToken(req, res, next) {
 module.exports = {
     router,
     activeSessions,
+    randomIntToken,
     authenticateToken
 }
