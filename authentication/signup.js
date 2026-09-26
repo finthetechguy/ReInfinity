@@ -78,7 +78,7 @@ router.post("/create", async (req, res) => {
         if (err.code === "SQLITE_CONSTRAINT" && err.message.includes("users.username")) {
             return res
                 .status(400)
-                .json({ code: "1", name: "INUSE_VALUE.USERNAME" });
+                .json({ code: "1", name: "APP.USERNAME_ALREADY_EXISTS" });
         }
         console.error("Failed to create user:", err);
         return res.status(500).json({ code: "9999" });
