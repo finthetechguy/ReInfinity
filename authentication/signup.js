@@ -2,6 +2,7 @@ const express = require("express");
 const users = require("../db/users");
 
 const router = express.Router();
+const token = require("./token");
 
 function getAgeBand(dob) {
     const yearDif = new Date().getFullYear() - new Date(dob).getFullYear();
@@ -64,6 +65,7 @@ router.post("/create", async (req, res) => {
         last_name: userData.last_name || "null",
         displayName: userData.displayName || userData.first_name,
         email: newEmail || "null",
+        ageBand: userData.date_of_birth ? getAgeBand(userData.date_of_birth) : "ADULT",
         swid: userData.swid || generateSwid()
     }
 
@@ -79,8 +81,20 @@ router.post("/create", async (req, res) => {
         return res.status(500).json({ code: "9999" });
     }
 
-    console.log(newUser);
-    res.json(newUser);
+    const access_token = token.randomIntToken();
+    const refresh_token = token.randomIntToken();
+    token.activeSessions[access_token] = newUser.swid;
+
+    res.json({
+        ageBand: newUser.ageBand,
+        access_token,
+        refresh_token,
+        first_name: newUser.first_name,
+        last_name: newUser.last_name,
+        username: newUser.username,
+        displayName: newUser.displayName,
+        swid: newUser.swid
+    });
 });
 
 module.exports = router;
