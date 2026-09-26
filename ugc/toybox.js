@@ -20,6 +20,9 @@ const SAFE_ID = /^[A-Za-z0-9_-]{1,64}$/;
 const WINDOWS_RESERVED_NAME = /^(CON|PRN|AUX|NUL|COM\d|LPT\d)$/i;
 const SWID = /^\d{8}$/;
 
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+const MAX_TOYBOX_BYTES = 32 * 1024 * 1024;
+
 function toSafeId(name) {
     const id = String(name).replace(/[^A-Za-z0-9_-]/g, "").slice(0, 48);
     if (!id || WINDOWS_RESERVED_NAME.test(id)) {
@@ -38,6 +41,10 @@ function getUserPaths(user) {
 
 function sendInvalidUser(res) {
     return res.status(403).json({ code: "100", name: "SECURITY.INVALID_USER" });
+}
+
+function sendTooLarge(res) {
+    return res.status(413).json({ error: "Toybox too large" });
 }
 
 // Check if data has the header/magic of a gzip. Toybox level data is encoded this way.
@@ -195,9 +202,18 @@ router.get("/private/in1/toybox", token.authenticateToken, async (req, res) => {
 });
 
 async function handleUpload(req, res, dbPath, dir) {
-    const bb = Busboy({ headers: req.headers });
+    let bb;
+    try {
+        bb = Busboy({
+            headers: req.headers,
+            limits: { fileSize: MAX_UPLOAD_BYTES, fieldSize: MAX_UPLOAD_BYTES, files: 1, fields: 10 }
+        });
+    } catch {
+        return res.status(400).json({ error: "Expected multipart/form-data" });
+    }
     let meta = null;
     let contentBuffer = null;
+    let tooLarge = false;
 
     bb.on("file", (fieldname, stream, info) => {
         if (fieldname !== "content") {
@@ -205,12 +221,15 @@ async function handleUpload(req, res, dbPath, dir) {
             return;
         }
         const chunks = [];
+        stream.on("limit", () => { tooLarge = true; });
         stream.on("data", (d) => chunks.push(d));
         stream.on("end", () => { contentBuffer = Buffer.concat(chunks); });
     });
 
     bb.on("field", (name, val, info) => {
-        if (name === "contentInfo") {
+        if (info.valueTruncated) {
+            tooLarge = true;
+        } else if (name === "contentInfo") {
             try { meta = JSON.parse(val); } catch { meta = null; }
         } else if (name === "content" && info && info.mimeType === "application/octet-stream") {
             const enc = (info.encoding || "binary").toLowerCase();
@@ -218,8 +237,16 @@ async function handleUpload(req, res, dbPath, dir) {
         }
     });
     
+    bb.on("error", (err) => {
+        console.error("[ugc/toybox] Malformed upload:", err.message);
+        req.unpipe(bb);
+        req.resume();
+        if (!res.headersSent) res.status(400).json({ error: "Malformed multipart body" });
+    });
+
     bb.on("finish", async () => {
         try {
+            if (tooLarge) return sendTooLarge(res);
             if (!meta) return res.status(400).json({ error: "Missing or invalid JSON (contentInfo)" });
             if (!contentBuffer || !isGzip(contentBuffer)) {
                 return res.status(415).json({ error: "Missing or invalid gzip (content)" });
@@ -229,9 +256,10 @@ async function handleUpload(req, res, dbPath, dir) {
 
             let origSize;
             try {
-                const raw = zlib.gunzipSync(contentBuffer);
+                const raw = zlib.gunzipSync(contentBuffer, { maxOutputLength: MAX_TOYBOX_BYTES });
                 origSize = raw.length;
-            } catch {
+            } catch (err) {
+                if (err.code === "ERR_BUFFER_TOO_LARGE") return sendTooLarge(res);
                 if (contentBuffer.length < 4) {
                     return res.status(415).json({ error: "Corrupt gzip (too small for ISIZE)" });
                 }
