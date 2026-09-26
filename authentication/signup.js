@@ -1,5 +1,6 @@
 const express = require("express");
 const users = require("../db/users");
+const { hashPassword } = require("./password");
 
 const router = express.Router();
 const token = require("./token");
@@ -18,15 +19,6 @@ router.get("/compliance", (req, res) => {
     });
 });
 
-// A random 8 digit number generator to create a swid
-function generateSwid() {
-    const min = 10000000;
-    const max = 99999999;
-
-    const randNum = Math.floor(Math.random() * (max - min +1)) + min;
-    return randNum;
-}
-
 router.post("/create", async (req, res) => {
     const userData = req.body;
 
@@ -34,7 +26,7 @@ router.post("/create", async (req, res) => {
         return res.status(400).json({ code: "9999" });
     }
 
-    // Sanity checks for important data, game handles error
+    // Sanity checks for important data, game displays the error
     if (!userData.first_name) {
         return res
             .status(400)
@@ -53,29 +45,33 @@ router.post("/create", async (req, res) => {
         }
     }
     
-    let newEmail = userData.email || userData.parents_email;
     // Before @ part of the email will act as the username if not supplied
     // The email is also still added so it can still be used as a login option
     let newUsername = userData.username || userData.email.split("@")[0];
 
-    const newUser = {
+    let newUser = {
         username: newUsername,
-        password: userData.password,
+        password: await hashPassword(userData.password),
         first_name: userData.first_name,
         last_name: userData.last_name || "null",
         displayName: userData.displayName || userData.first_name,
-        email: newEmail || "null",
-        ageBand: userData.date_of_birth ? getAgeBand(userData.date_of_birth) : "ADULT",
-        swid: userData.swid || generateSwid()
+        email: userData.email || null,
+        parents_email: userData.parents_email || null,
+        ageBand: userData.date_of_birth ? getAgeBand(userData.date_of_birth) : "ADULT"
     }
 
     try {
-        await users.createUser(newUser);
+        newUser = await users.createUser(newUser);
     } catch (err) {
         if (err.code === "SQLITE_CONSTRAINT" && err.message.includes("users.username")) {
             return res
                 .status(400)
                 .json({ code: "1", name: "APP.USERNAME_ALREADY_EXISTS" });
+        }
+        if (err.code === "SQLITE_CONSTRAINT" && err.message.includes("users.email")) {
+            return res
+                .status(400)
+                .json({ code: "1", name: "APP.EMAIL_ALREADY_EXISTS" });
         }
         console.error("Failed to create user:", err);
         return res.status(500).json({ code: "9999" });

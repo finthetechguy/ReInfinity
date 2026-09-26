@@ -5,6 +5,7 @@ const path = require("path");
 const router = express.Router();
 const token = require("./token");
 const users = require("../db/users");
+const { hashPassword, isHashed, verifyPassword } = require("./password");
 
 router.use(express.json());
 router.use(express.urlencoded({ extended: true }));
@@ -47,8 +48,13 @@ router.post("/", async (req, res) => {
     return res.status(500).json({ error: "server_error" });
   }
 
-  if (!user) return res.status(404).json({ code: "100", name: "SECURITY.INVALID_USER" });
-  if (user.password !== password) return res.status(401).json({ code: "100", name: "SECURITY.INVALID_USER" });
+  if (!user || !(await verifyPassword(password, user.password))) {
+    return res.status(401).json({ code: "100", name: "SECURITY.INVALID_USER" });
+  }
+
+  if (!isHashed(user.password)) {
+    await users.updatePassword(user.swid, await hashPassword(password));
+  }
 
   const allowedBands = ["CHILD", "TEEN", "ADULT"];
   const ageBand = allowedBands.includes(user.ageBand) ? user.ageBand : "ADULT";

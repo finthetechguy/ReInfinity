@@ -38,7 +38,10 @@ async function authenticateToken(req, res, next) {
 
     const user = await users.getUserBySwid(swid);
 
-    if (!user) { return res.sendStatus(200); }
+    if (!user) {
+        delete activeSessions[token];
+        return res.sendStatus(401);
+    }
 
     req.user = user;
     next();
