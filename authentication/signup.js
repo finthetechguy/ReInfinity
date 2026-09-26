@@ -77,9 +77,8 @@ router.post("/create", async (req, res) => {
         return res.status(500).json({ code: "9999" });
     }
 
-    const access_token = token.randomIntToken();
+    const access_token = token.createSession(newUser.swid);
     const refresh_token = token.randomIntToken();
-    token.activeSessions[access_token] = newUser.swid;
 
     res.json({
         ageBand: newUser.ageBand,

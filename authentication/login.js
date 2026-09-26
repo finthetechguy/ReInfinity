@@ -6,6 +6,7 @@ const router = express.Router();
 const token = require("./token");
 const users = require("../db/users");
 const { hashPassword, isHashed, verifyPassword } = require("./password");
+const limiter = require("./loginLimiter");
 
 router.use(express.json());
 router.use(express.urlencoded({ extended: true }));
@@ -26,6 +27,12 @@ router.use((req, _res, next) => {
 router.get("/", (_req, res) => res.sendStatus(200));
 
 router.post("/", async (req, res) => {
+
+  if (limiter.isLocked(req.ip)) {
+    return res
+      .status(429)
+      .json({ code: "100", name: "SYSTEM.UNRESPONSIVE.AUTHENTICATE" });
+  }
 
   const { grant_type, username, password } = req.body;
 
@@ -49,6 +56,7 @@ router.post("/", async (req, res) => {
   }
 
   if (!user || !(await verifyPassword(password, user.password))) {
+    limiter.recordFailure(req.ip);
     return res.status(401).json({ code: "100", name: "SECURITY.INVALID_USER" });
   }
 
@@ -56,13 +64,13 @@ router.post("/", async (req, res) => {
     await users.updatePassword(user.swid, await hashPassword(password));
   }
 
+  limiter.clearFailures(req.ip);
+
   const allowedBands = ["CHILD", "TEEN", "ADULT"];
   const ageBand = allowedBands.includes(user.ageBand) ? user.ageBand : "ADULT";
 
-  const access_token = token.randomIntToken();
+  const access_token = token.createSession(user.swid);
   const refresh_token = token.randomIntToken();
-
-  token.activeSessions[access_token] = user.swid;
 
   return res.json({
     ageBand,
