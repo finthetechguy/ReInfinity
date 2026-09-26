@@ -1,12 +1,9 @@
 const express = require("express");
-const fs = require("fs");
-const path = require("path");
-
-const DB_PATH = path.join(__dirname, "..", "db", "users.json");
+const users = require("../db/users");
 
 const router = express.Router();
 
-// Return the age group based on date of birth (and country code)
+// Return the age group based on date of birth
 router.get("/compliance", (req, res) => {
     // const countryCode = req.query.country-code;
     const queryDate = new Date(req.query.dob);
@@ -25,7 +22,7 @@ router.get("/compliance", (req, res) => {
     });
 });
 
-// A random 8 digit number generator to act as our SWID
+// A random 8 digit number generator to create a swid
 function generateSwid() {
     const min = 10000000;
     const max = 99999999;
@@ -34,9 +31,7 @@ function generateSwid() {
     return randNum;
 }
 
-// Adds user account to database, returns JSON with any errors
-// Only first name, last name and email are required (for now)
-router.post("/create", (req, res) => {
+router.post("/create", async (req, res) => {
     const userData = req.body;
 
     if (!userData || typeof userData !== "object") {
@@ -77,17 +72,19 @@ router.post("/create", (req, res) => {
         swid: userData.swid || generateSwid()
     }
 
-    fs.readFile(DB_PATH, "utf8", (err, data) => {
-        if (err) return res.status(500).json({ code: "9999" });
+    try {
+        await users.createUser(newUser);
+    } catch (err) {
+        if (err.code === "SQLITE_CONSTRAINT" && err.message.includes("users.username")) {
+            return res
+                .status(400)
+                .json({ code: "1", name: "INUSE_VALUE.USERNAME" });
+        }
+        console.error("Failed to create user:", err);
+        return res.status(500).json({ code: "9999" });
+    }
 
-        let db = JSON.parse(data);
-        db.users.push(newUser);
-
-        fs.writeFile(DB_PATH, JSON.stringify(db, null, 2), (writeErr) => {
-            if (writeErr) return res.status(500).json({ code: "9999" });
-            res.json(newUser);
-        });
-    });
+    res.json(newUser);
 });
 
 module.exports = router;

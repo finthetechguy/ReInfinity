@@ -5,6 +5,7 @@ const crypto = require("crypto");
 
 const router = express.Router();
 const token = require("./token");
+const users = require("../db/users");
 
 router.use(express.json());
 router.use(express.urlencoded({ extended: true }));
@@ -15,7 +16,7 @@ router.use((req, _res, next) => {
     try {
       req.body = JSON.parse(req.body);
     } catch {
-      // leave as text; POST handler will handle
+      // leave as text as POST handler will handle
     }
   }
   next();
@@ -28,7 +29,7 @@ function randomIntToken() {
 // Sometimes a GET request is made, send 200 to tell client it's online
 router.get("/", (_req, res) => res.sendStatus(200));
 
-router.post("/", (req, res) => {
+router.post("/", async (req, res) => {
 
   const { grant_type, username, password } = req.body;
 
@@ -43,17 +44,14 @@ router.post("/", (req, res) => {
       .json({ code: "100", name: "SECURITY.INVALID_USER" });
   }
 
-  let users;
+  let user;
   try {
-    users = token.loadUsers();
+    user = await users.getUserByUsername(username);
   } catch (err) {
     console.error("Failed to read DB:", err);
     return res.status(500).json({ error: "server_error" });
   }
 
-  const user = users.find(
-    (u) => (u.username || "").toLowerCase() === String(username).toLowerCase()
-  );
   if (!user) return res.status(404).json({ code: "100", name: "SECURITY.INVALID_USER" });
   if (user.password !== password) return res.status(401).json({ code: "100", name: "SECURITY.INVALID_USER" });
 
@@ -63,7 +61,7 @@ router.post("/", (req, res) => {
   const access_token = randomIntToken();
   const refresh_token = randomIntToken();
 
-  token.activeSessions[access_token] = user.username;
+  token.activeSessions[access_token] = user.swid;
 
   return res.json({
     ageBand,

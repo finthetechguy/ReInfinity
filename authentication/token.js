@@ -1,18 +1,11 @@
 const express = require("express");
-const fs = require("fs");
-const path = require("path");
+const users = require("../db/users");
 const router = express.Router();
 
-const USER_DB = path.join(__dirname, "..", "db", "users.json");
+// Maps access token to swid
 const activeSessions = {};
 
-function loadUsers() {
-  const raw = fs.readFileSync(USER_DB, "utf8");
-  const data = JSON.parse(raw);
-  return Array.isArray(data.users) ? data.users : [];
-}
-
-function authenticateToken(req, res, next) {
+async function authenticateToken(req, res, next) {
     const authHeader = req.headers["authorization"];
 
     if (authHeader == null) { return res.sendStatus(401); }
@@ -31,13 +24,13 @@ function authenticateToken(req, res, next) {
 
     if (token == null) { return res.sendStatus(401); }
 
-    const username = activeSessions[token];
+    const swid = activeSessions[token];
 
-    if (!username) {
+    if (!swid) {
         return res.sendStatus(403);
     }
 
-    const user = loadUsers().find(u => u.username === username);
+    const user = await users.getUserBySwid(swid);
 
     if (!user) { return res.sendStatus(200); }
 
@@ -48,6 +41,5 @@ function authenticateToken(req, res, next) {
 module.exports = {
     router,
     activeSessions,
-    authenticateToken,
-    loadUsers
+    authenticateToken
 }

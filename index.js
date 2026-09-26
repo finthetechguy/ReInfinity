@@ -8,6 +8,7 @@ const platformsRouter = require("./profile/platforms");
 const newsRouter = require("./news/news");
 const avatarRouter = require("./profile/avatar");
 const toyboxRouter = require("./ugc/toybox");
+const { initUsersDb } = require("./db/users");
 
 const app = express();
 app.use(express.json());
@@ -71,6 +72,13 @@ app.get("/", (req, res) => {
   res.type("text").send("Use on Disney Infinity client!");
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
-});
+initUsersDb()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Server running at http://localhost:${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error("Failed to open users DB:", err);
+    process.exit(1);
+  });
