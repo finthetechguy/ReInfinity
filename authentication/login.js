@@ -7,6 +7,7 @@ const token = require("./token");
 const users = require("../db/users");
 const { hashPassword, isHashed, verifyPassword } = require("./password");
 const limiter = require("./loginLimiter");
+const { disneyError } = require("../util/disneyErrors");
 
 router.use(express.json());
 router.use(express.urlencoded({ extended: true }));
@@ -31,7 +32,7 @@ router.post("/", async (req, res) => {
   if (limiter.isLocked(req.ip)) {
     return res
       .status(429)
-      .json({ code: "100", name: "SYSTEM.UNRESPONSIVE.AUTHENTICATE" });
+      .json(disneyError("SYSTEM.UNRESPONSIVE.AUTHENTICATE"));
   }
 
   const { grant_type, username, password } = req.body;
@@ -39,12 +40,12 @@ router.post("/", async (req, res) => {
   if (grant_type !== "password") {
     return res
       .status(400)
-      .json({ code: "9999" });
+      .json(disneyError("APP.GRANT_TYPE_UNKNOWN"));
   }
   if (!username || !password) {
     return res
       .status(400)
-      .json({ code: "100", name: "SECURITY.INVALID_USER" });
+      .json(disneyError("SECURITY.INVALID_USER"));
   }
 
   let user;
@@ -52,12 +53,12 @@ router.post("/", async (req, res) => {
     user = await users.getUserByUsername(username);
   } catch (err) {
     console.error("Failed to read DB:", err);
-    return res.status(500).json({ error: "server_error" });
+    return res.status(500).json(disneyError("SYSTEM.UNRESPONSIVE.AUTHENTICATE"));
   }
 
   if (!user || !(await verifyPassword(password, user.password))) {
     limiter.recordFailure(req.ip);
-    return res.status(401).json({ code: "100", name: "SECURITY.INVALID_USER" });
+    return res.status(401).json(disneyError("SECURITY.INVALID_USER"));
   }
 
   if (!isHashed(user.password)) {

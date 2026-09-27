@@ -1,6 +1,7 @@
 const express = require("express");
 const users = require("../db/users");
 const { hashPassword } = require("./password");
+const { disneyError } = require("../util/disneyErrors");
 
 const router = express.Router();
 const token = require("./token");
@@ -30,18 +31,18 @@ router.post("/create", async (req, res) => {
     if (!userData.first_name) {
         return res
             .status(400)
-            .json({ code: "1", name: "INPUT.MISSING_DATA.FIRST_NAME" });
+            .json(disneyError("INPUT.MISSING_DATA.FIRST_NAME"));
     }
     if (!userData.password) {
         return res
             .status(400)
-            .json({ code: "1", name: "INPUT.MISSING_DATA.PASSWORD" });
+            .json(disneyError("INPUT.MISSING_DATA.PASSWORD"));
     }
     if (!userData.username) {
         if (!userData.email) {
             return res
                 .status(400)
-                .json({ code: "1", name: "INPUT.MISSING_DATA.EMAIL" });
+                .json(disneyError("INPUT.MISSING_DATA.EMAIL"));
         }
     }
     
@@ -66,12 +67,12 @@ router.post("/create", async (req, res) => {
         if (err.code === "SQLITE_CONSTRAINT" && err.message.includes("users.username")) {
             return res
                 .status(400)
-                .json({ code: "1", name: "APP.USERNAME_ALREADY_EXISTS" });
+                .json(disneyError("APP.USERNAME_ALREADY_EXISTS"));
         }
         if (err.code === "SQLITE_CONSTRAINT" && err.message.includes("users.email")) {
             return res
                 .status(400)
-                .json({ code: "1", name: "APP.EMAIL_ALREADY_EXISTS" });
+                .json(disneyError("APP.EMAIL_ADDRESS_EXISTS"));
         }
         console.error("Failed to create user:", err);
         return res.status(500).json({ code: "9999" });
