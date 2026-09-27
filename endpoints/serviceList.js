@@ -14,6 +14,7 @@ const PATHS = {
 // Unimplemented services still go to this server so their requests show up in the log.
 const GAMES = {
     in1: {
+        platforms: ["ios", "win8rt", "wiiu"],
         services: {
             url_authentication: PATHS.auth,
             url_feed_ticker: PATHS.news,
@@ -47,6 +48,7 @@ const GAMES = {
     },
     // TODO: check what services IN2 uses
     in2: {
+        platforms: ["infinity2/ios"],
         services: {
             url_cg_did_auth: PATHS.auth,
             url_inf_ticker: PATHS.news,

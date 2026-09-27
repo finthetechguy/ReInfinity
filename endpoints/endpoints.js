@@ -1,38 +1,26 @@
-// /json/json.js
 const { Router } = require("express");
-const path = require("path");
-const fs = require("fs/promises");
+const { GAMES, buildServiceList } = require("./serviceList");
+const { getBaseUrl } = require("../util/baseUrl");
 
-const router = Router();
-const INFINITY1 = path.join(__dirname, "endpointList-IN1.json");
-const INFINITY2 = path.join(__dirname, "endpointList-IN2.json");
-
-async function serveEndpointList(res, jsonFile) {
-    try {
-        const data = await fs.readFile(jsonFile, "utf8");
-        const json = JSON.parse(data);
-        res.json(json);
-    } catch (err) {
-        if (err.code === "ENOENT") {
-            return res.status(404);
-        }
-        console.error(err);
-        res.status(500);
+function createConfigRouter(game) {
+    if (!GAMES[game]) {
+        throw new Error(`Unknown game "${game}"`);
     }
+
+    const router = Router();
+
+    // platforms can contain slashes ("infinity2/ios") and the client adds a trailing one.
+    router.get("/{*platform}", (req, res) => {
+        const platform = (req.params.platform || []).filter(Boolean).join("/");
+        if (!GAMES[game].platforms.includes(platform)) {
+            console.warn(`Unknown ${game} config platform "${platform}" from ${req.ip}`);
+            return res.status(404).json({ code: "404", name: "CONFIG.UNKNOWN_PLATFORM" });
+        }
+
+        res.json(buildServiceList(game, getBaseUrl(req)));
+    });
+
+    return router;
 }
 
-router.get("/ios", async (_req, res) => {
-    serveEndpointList(res, INFINITY1);
-});
-
-router.get("/win8rt", async (_req, res) => {
-    serveEndpointList(res, INFINITY1)
-});
-
-router.get("/infinity2/ios", async (_req, res) => {
-    serveEndpointList(res, INFINITY2);
-});
-
-
-
-module.exports = router;
+module.exports = { createConfigRouter };

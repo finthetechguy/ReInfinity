@@ -1,7 +1,7 @@
 const express = require("express");
 const path = require("path");
 
-const endpointRouter = require("./endpoints/endpoints");
+const { createConfigRouter } = require("./endpoints/endpoints");
 const loginRouter = require("./authentication/login");
 const signupRouter = require("./authentication/signup");
 const platformsRouter = require("./profile/platforms");
@@ -59,8 +59,8 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use("/infinity/config/v1/", endpointRouter);
-app.use("/coregames/config/v1/", endpointRouter);
+app.use("/infinity/config/v1/", createConfigRouter("in1"));
+app.use("/coregames/config/v1/", createConfigRouter("in2"));
 app.use("/auth/authenticate", loginRouter);
 app.use("/auth", signupRouter);
 app.use("/profile/platforms", platformsRouter);
