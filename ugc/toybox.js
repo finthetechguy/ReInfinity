@@ -219,7 +219,51 @@ router.get("/private/in1/toybox", token.authenticateToken, async (req, res) => {
     }
 });
 
-async function handleUpload(req, res, dbPath, dir) {
+async function createToybox(dbPath, fields) {
+    const id = await getUniqueId(dbPath, toSafeId(fields.name));
+    const now = Math.floor(Date.now() / 1000);
+    const row = {
+        ...fields,
+        _id: id,
+        type: "game",
+        version: 1,
+        shared: 1,
+        user_can_like: 1,
+        creation_time: now,
+        last_update_time: now
+    };
+
+    const db = await openDb(dbPath);
+    await runDb(db, `INSERT INTO toyboxes
+        (_id, name, desc, type, version, shared, user_can_like, orig_size, comp_size, title, description, creator, zone, creation_time, last_update_time)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
+        row._id, row.name, row.desc, row.type, row.version, row.shared, row.user_can_like,
+        row.orig_size, row.comp_size, row.title, row.description, row.creator, row.zone,
+        row.creation_time, row.last_update_time
+    ]);
+    db.close();
+    return row;
+}
+
+// Overwrite keeps _id, creation_time and creator; returns null if the toybox doesn't exist.
+async function updateToybox(dbPath, id, fields) {
+    const db = await openDb(dbPath);
+    const result = await runDb(db, `UPDATE toyboxes SET
+        name = ?, desc = ?, zone = ?, title = ?, description = ?, orig_size = ?, comp_size = ?,
+        version = version + 1, last_update_time = ?
+        WHERE _id = ?`, [
+        fields.name, fields.desc, fields.zone, fields.title, fields.description,
+        fields.orig_size, fields.comp_size, Math.floor(Date.now() / 1000), id
+    ]);
+    const row = result.changes > 0
+        ? await getDb(db, `SELECT ${ITEM_COLUMNS} FROM toyboxes WHERE _id = ?`, [id])
+        : null;
+    db.close();
+    return row;
+}
+
+// Parses the client multipart upload, existingId means overwrite (PUT) instead of create (POST).
+async function handleUpload(req, res, dbPath, dir, existingId = null) {
     let bb;
     try {
         bb = Busboy({
@@ -286,54 +330,26 @@ async function handleUpload(req, res, dbPath, dir) {
 
             if (!meta.name) return res.status(400).json({ error: "Missing 'name' key (contentInfo)" });
             await createDb(dbPath);
-            const cleanName = await getUniqueId(dbPath, toSafeId(meta.name));
 
-            const toyboxInfo = {
-                _id: cleanName,
+            const fields = {
                 name: meta.name,
                 desc: meta.desc || "",
-                type: "game",
-                version: 1,
-                shared: 1,
-                user_can_like: 1,
                 creator: meta.creator || "",
-                zone: meta.zone == null ? "" : String(meta.zone)
+                zone: meta.zone == null ? "" : String(meta.zone),
+                title: meta.title || meta.name || "",
+                description: meta.description || meta.desc || "",
+                orig_size: origSize,
+                comp_size: compSize
             };
-
-            const db = await openDb(dbPath);
-            const insertSql = `INSERT INTO toyboxes
-                (_id, name, desc, type, version, shared, user_can_like, orig_size, comp_size, title, description, creator, zone, creation_time, last_update_time)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-            const creationTime = Math.floor(Date.now() / 1000);
-            await runDb(db, insertSql, [
-                toyboxInfo._id,
-                toyboxInfo.name,
-                toyboxInfo.desc,
-                toyboxInfo.type,
-                toyboxInfo.version,
-                toyboxInfo.shared,
-                toyboxInfo.user_can_like,
-                origSize,
-                compSize,
-                meta.title || meta.name || "",
-                meta.description || meta.desc || "",
-                toyboxInfo.creator,
-                toyboxInfo.zone,
-                creationTime,
-                creationTime
-            ]);
-            db.close();
+            const row = existingId
+                ? await updateToybox(dbPath, existingId, fields)
+                : await createToybox(dbPath, fields);
+            if (!row) return res.status(404).end();
 
             await fsp.mkdir(dir, { recursive: true });
-            await fsp.writeFile(path.join(dir, cleanName), contentBuffer);
+            await fsp.writeFile(path.join(dir, row._id), contentBuffer);
 
-            res.status(200).json(toItem({
-                ...toyboxInfo,
-                orig_size: origSize,
-                comp_size: compSize,
-                creation_time: creationTime,
-                last_update_time: creationTime
-            }));
+            res.status(200).json(toItem(row));
         } catch (err) {
             console.error(err);
             res.status(503).end();
@@ -352,6 +368,23 @@ router.post("/private/in1/toybox", token.authenticateToken, (req, res) => {
     if (!userPaths) return sendInvalidUser(res);
 
     handleUpload(req, res, userPaths.dbPath, userPaths.dir);
+});
+
+router.put("/private/in1/toybox/:name", token.authenticateToken, async (req, res) => {
+    const userPaths = getUserPaths(req.user);
+    if (!userPaths) return sendInvalidUser(res);
+
+    const id = req.params.name;
+    try {
+        if (!SAFE_ID.test(id) || !(await toyboxExists(userPaths.dbPath, id))) {
+            return res.status(404).end();
+        }
+    } catch (err) {
+        console.error(err);
+        return res.status(500).end();
+    }
+
+    handleUpload(req, res, userPaths.dbPath, userPaths.dir, id);
 });
 
 // Only IDs listed in the toybox DB are served, so other files in the folder (like db.sqlite3) can't be downloaded.
