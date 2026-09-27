@@ -35,7 +35,7 @@ router.post("/", async (req, res) => {
       .json(disneyError("SYSTEM.UNRESPONSIVE.AUTHENTICATE"));
   }
 
-  const { grant_type, username, password } = req.body;
+  const { grant_type, username, password } = req.body ?? {};
 
   if (grant_type !== "password") {
     return res
