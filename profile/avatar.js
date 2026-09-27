@@ -1,5 +1,6 @@
 const express = require("express");
 const users = require("../db/users");
+const { getBaseUrl } = require("../util/baseUrl");
 
 const router = express.Router();
 
@@ -21,7 +22,7 @@ router.get("/guest/:swid/image", async (req, res) => {
     return res.status(404).json({ code: "not_found", message: "Player not found." });
   }
 
-  const image  = user.image  ?? "http://192.168.0.18:3000/assets/avatars/default.png";
+  const image  = user.image  ?? `${getBaseUrl(req)}/assets/avatars/default.png`;
   const width  = Number.isFinite(user.width)  ? user.width  : 256;
   const height = Number.isFinite(user.height) ? user.height : 256;
 
