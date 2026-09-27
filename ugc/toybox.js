@@ -22,6 +22,10 @@ const SWID = /^\d{8}$/;
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const MAX_TOYBOX_BYTES = 32 * 1024 * 1024;
+const MAX_SCREENSHOT_BYTES = 2 * 1024 * 1024;
+const SCREENSHOT_KEYS = ["width", "height", "size", "format", "platform"];
+
+const LATER_COLUMNS = { zone: "TEXT", screenshot_info: "TEXT" };
 
 function toSafeId(name) {
     const id = String(name).replace(/[^A-Za-z0-9_-]/g, "").slice(0, 48);
@@ -71,6 +75,7 @@ async function createDb(dbPath) {
         description TEXT,
         creator TEXT,
         zone TEXT,
+        screenshot_info TEXT,
         creation_time INTEGER,
         last_update_time INTEGER
     );
@@ -79,13 +84,29 @@ async function createDb(dbPath) {
     await runDb(db, createSql);
 
     const columns = await allDb(db, "PRAGMA table_info(toyboxes)");
-    if (!columns.some(c => c.name === "zone")) {
-        await runDb(db, "ALTER TABLE toyboxes ADD COLUMN zone TEXT");
+    for (const [name, type] of Object.entries(LATER_COLUMNS)) {
+        if (!columns.some(c => c.name === name)) {
+            await runDb(db, `ALTER TABLE toyboxes ADD COLUMN ${name} ${type}`);
+        }
     }
     db.close();
 }
 
 const ITEM_COLUMNS = "_id, name, desc, type, version, creator, zone, orig_size, comp_size, creation_time, last_update_time";
+
+// screenshot is a raw texture the game decodes using these values
+function parseScreenshot(info, buffer) {
+    if (!info || !buffer || buffer.length === 0 || buffer.length > MAX_SCREENSHOT_BYTES) return null;
+    if (!SCREENSHOT_KEYS.every(k => Number.isInteger(info[k]) && info[k] > 0)) return null;
+    if (info.size !== buffer.length) return null;
+
+    const cleanInfo = Object.fromEntries(SCREENSHOT_KEYS.map(k => [k, info[k]]));
+    return { info: cleanInfo, buffer };
+}
+
+function screenshotPath(dir, id) {
+    return path.join(dir, `${id}.screenshot`);
+}
 
 function toItem(row) {
     return {
@@ -235,11 +256,11 @@ async function createToybox(dbPath, fields) {
 
     const db = await openDb(dbPath);
     await runDb(db, `INSERT INTO toyboxes
-        (_id, name, desc, type, version, shared, user_can_like, orig_size, comp_size, title, description, creator, zone, creation_time, last_update_time)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
+        (_id, name, desc, type, version, shared, user_can_like, orig_size, comp_size, title, description, creator, zone, screenshot_info, creation_time, last_update_time)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
         row._id, row.name, row.desc, row.type, row.version, row.shared, row.user_can_like,
         row.orig_size, row.comp_size, row.title, row.description, row.creator, row.zone,
-        row.creation_time, row.last_update_time
+        row.screenshot_info, row.creation_time, row.last_update_time
     ]);
     db.close();
     return row;
@@ -250,10 +271,10 @@ async function updateToybox(dbPath, id, fields) {
     const db = await openDb(dbPath);
     const result = await runDb(db, `UPDATE toyboxes SET
         name = ?, desc = ?, zone = ?, title = ?, description = ?, orig_size = ?, comp_size = ?,
-        version = version + 1, last_update_time = ?
+        screenshot_info = ?, version = version + 1, last_update_time = ?
         WHERE _id = ?`, [
         fields.name, fields.desc, fields.zone, fields.title, fields.description,
-        fields.orig_size, fields.comp_size, Math.floor(Date.now() / 1000), id
+        fields.orig_size, fields.comp_size, fields.screenshot_info, Math.floor(Date.now() / 1000), id
     ]);
     const row = result.changes > 0
         ? await getDb(db, `SELECT ${ITEM_COLUMNS} FROM toyboxes WHERE _id = ?`, [id])
@@ -268,7 +289,7 @@ async function handleUpload(req, res, dbPath, dir, existingId = null) {
     try {
         bb = Busboy({
             headers: req.headers,
-            limits: { fileSize: MAX_UPLOAD_BYTES, fieldSize: MAX_UPLOAD_BYTES, files: 1, fields: 10 }
+            limits: { fileSize: MAX_UPLOAD_BYTES, fieldSize: MAX_UPLOAD_BYTES, files: 2, fields: 10 }
         });
     } catch {
         return res.status(400).json({ error: "Expected multipart/form-data" });
@@ -276,8 +297,21 @@ async function handleUpload(req, res, dbPath, dir, existingId = null) {
     let meta = null;
     let contentBuffer = null;
     let tooLarge = false;
+    let shotInfo = null;
+    let shotBuffer = null;
 
     bb.on("file", (fieldname, stream, info) => {
+        if (fieldname === "screenshot") {
+            // An oversized screenshot is dropped
+            const chunks = [];
+            let size = 0;
+            stream.on("data", (d) => {
+                size += d.length;
+                if (size <= MAX_SCREENSHOT_BYTES) chunks.push(d);
+            });
+            stream.on("end", () => { shotBuffer = size <= MAX_SCREENSHOT_BYTES ? Buffer.concat(chunks) : null; });
+            return;
+        }
         if (fieldname !== "content") {
             stream.resume();
             return;
@@ -293,6 +327,8 @@ async function handleUpload(req, res, dbPath, dir, existingId = null) {
             tooLarge = true;
         } else if (name === "contentInfo") {
             try { meta = JSON.parse(val); } catch { meta = null; }
+        } else if (name === "screenshotInfo") {
+            try { shotInfo = JSON.parse(val); } catch { shotInfo = null; }
         } else if (name === "content" && info && info.mimeType === "application/octet-stream") {
             const enc = (info.encoding || "binary").toLowerCase();
             contentBuffer = Buffer.from(val, enc === "binary" ? "binary" : "utf8");
@@ -331,6 +367,7 @@ async function handleUpload(req, res, dbPath, dir, existingId = null) {
             if (!meta.name) return res.status(400).json({ error: "Missing 'name' key (contentInfo)" });
             await createDb(dbPath);
 
+            const screenshot = parseScreenshot(shotInfo, shotBuffer);
             const fields = {
                 name: meta.name,
                 desc: meta.desc || "",
@@ -339,7 +376,8 @@ async function handleUpload(req, res, dbPath, dir, existingId = null) {
                 title: meta.title || meta.name || "",
                 description: meta.description || meta.desc || "",
                 orig_size: origSize,
-                comp_size: compSize
+                comp_size: compSize,
+                screenshot_info: screenshot ? JSON.stringify(screenshot.info) : null
             };
             const row = existingId
                 ? await updateToybox(dbPath, existingId, fields)
@@ -348,6 +386,11 @@ async function handleUpload(req, res, dbPath, dir, existingId = null) {
 
             await fsp.mkdir(dir, { recursive: true });
             await fsp.writeFile(path.join(dir, row._id), contentBuffer);
+            if (screenshot) {
+                await fsp.writeFile(screenshotPath(dir, row._id), screenshot.buffer);
+            } else {
+                await fsp.rm(screenshotPath(dir, row._id), { force: true });
+            }
 
             res.status(200).json(toItem(row));
         } catch (err) {
@@ -423,6 +466,42 @@ router.get("/private/in1/toybox/:name", token.authenticateToken, (req, res) => {
     handleDownload(res, userPaths.dbPath, userPaths.dir, req.params.name);
 });
 
+// The client reads the screenshot's dimensions and format from the x-binary-metadata header
+async function handleScreenshot(res, dbPath, dir, id) {
+    if (!SAFE_ID.test(id)) return res.status(404).end();
+
+    try {
+        await createDb(dbPath);
+        const db = await openDb(dbPath);
+        const row = await getDb(db, `SELECT screenshot_info FROM toyboxes WHERE _id = ?`, [id]);
+        db.close();
+        if (!row || !row.screenshot_info) return res.status(404).end();
+
+        const image = await fsp.readFile(screenshotPath(dir, id));
+        const metadata = { ...JSON.parse(row.screenshot_info), filename: `${id}.screenshot` };
+        res.set({
+            "Content-Type": "application/octet-stream",
+            "x-binary-metadata": JSON.stringify(metadata)
+        });
+        res.end(image);
+    } catch (err) {
+        if (err.code === "ENOENT") return res.status(404).end();
+        console.error(err);
+        res.status(500).end();
+    }
+}
+
+router.get("/public/in1/toybox/:name/screenshot", (req, res) => {
+    handleScreenshot(res, PUBLIC_DB, PUBLIC_PATH, req.params.name);
+});
+
+router.get("/private/in1/toybox/:name/screenshot", token.authenticateToken, (req, res) => {
+    const userPaths = getUserPaths(req.user);
+    if (!userPaths) return sendInvalidUser(res);
+
+    handleScreenshot(res, userPaths.dbPath, userPaths.dir, req.params.name);
+});
+
 async function handleDelete(res, dbPath, dir, id) {
     if (!SAFE_ID.test(id)) return res.status(404).end();
 
@@ -434,6 +513,7 @@ async function handleDelete(res, dbPath, dir, id) {
 
         if (result.changes > 0) {
             await fsp.rm(path.join(dir, id), { force: true });
+            await fsp.rm(screenshotPath(dir, id), { force: true });
         }
     } catch (err) {
         console.error(err);

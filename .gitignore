@@ -2,3 +2,4 @@ node_modules/
 db/users.sqlite3*
 config.json
 ugc/private_toyboxes/
+ugc/public_toyboxes/
