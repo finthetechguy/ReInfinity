@@ -6,7 +6,7 @@ const fsp = require("fs/promises");
 const zlib = require("zlib");
 const crypto = require("crypto");
 const token = require("../authentication/token");
-const { send } = require("process");
+const { disneyError } = require("../util/disneyErrors");
 const { openDb, runDb, getDb, allDb } = require("../db/sqlite");
 const router = express.Router();
 
@@ -44,11 +44,13 @@ function getUserPaths(user) {
 }
 
 function sendInvalidUser(res) {
-    return res.status(403).json({ code: "100", name: "SECURITY.INVALID_USER" });
+    return res.status(403).json(disneyError("SECURITY.INVALID_USER"));
 }
 
-function sendTooLarge(res) {
-    return res.status(413).json({ error: "Toybox too large" });
+// The client only reads the status so the reason is just logged.
+function sendBadUpload(res, reason) {
+    console.warn(`[ugc/toybox] Rejected upload: ${reason}`);
+    return res.status(400).json(disneyError("INPUT.MISSING_DATA.UNKNOWN"));
 }
 
 // Check if data has the header/magic of a gzip. Toybox level data is encoded this way.
@@ -56,10 +58,19 @@ function isGzip(buf) {
     return Buffer.isBuffer(buf) && buf.length >= 2 && buf[0] === 0x1f && buf[1] === 0x8b;
 }
 
+// Closes the DB even if fn throws.
+async function withDb(dbPath, fn) {
+    const db = await openDb(dbPath);
+    try {
+        return await fn(db);
+    } finally {
+        db.close();
+    }
+}
+
 // Creates a toybox database including it's folder if not already created.
 async function createDb(dbPath) {
     await fsp.mkdir(path.dirname(dbPath), { recursive: true });
-    const db = await openDb(dbPath);
     const createSql = `
     CREATE TABLE IF NOT EXISTS toyboxes (
         _id TEXT PRIMARY KEY,
@@ -81,15 +92,16 @@ async function createDb(dbPath) {
     );
     `;
     
-    await runDb(db, createSql);
+    await withDb(dbPath, async (db) => {
+        await runDb(db, createSql);
 
-    const columns = await allDb(db, "PRAGMA table_info(toyboxes)");
-    for (const [name, type] of Object.entries(LATER_COLUMNS)) {
-        if (!columns.some(c => c.name === name)) {
-            await runDb(db, `ALTER TABLE toyboxes ADD COLUMN ${name} ${type}`);
+        const columns = await allDb(db, "PRAGMA table_info(toyboxes)");
+        for (const [name, type] of Object.entries(LATER_COLUMNS)) {
+            if (!columns.some(c => c.name === name)) {
+                await runDb(db, `ALTER TABLE toyboxes ADD COLUMN ${name} ${type}`);
+            }
         }
-    }
-    db.close();
+    });
 }
 
 const ITEM_COLUMNS = "_id, name, desc, type, version, creator, zone, orig_size, comp_size, creation_time, last_update_time";
@@ -159,19 +171,16 @@ function parseListQuery(req) {
 }
 
 async function sendJson(dbPath, req, res) {
-    try {
-        await createDb(dbPath);
-        const db = await openDb(dbPath);
-
-        const { page_size, offset, orderBy, page } = parseListQuery(req);
+    await createDb(dbPath);
+    const { page_size, offset, orderBy } = parseListQuery(req);
 
     const sql = `SELECT ${ITEM_COLUMNS} FROM toyboxes
                  ORDER BY ${orderBy}
                  LIMIT ? OFFSET ?`;
-    const rows = await allDb(db, sql, [page_size, offset]);
-    const countRow = await getDb(db, `SELECT COUNT(1) as cnt FROM toyboxes`);
-
-    db.close();
+    const { rows, countRow } = await withDb(dbPath, async (db) => ({
+        rows: await allDb(db, sql, [page_size, offset]),
+        countRow: await getDb(db, `SELECT COUNT(1) as cnt FROM toyboxes`)
+    }));
 
     const items = rows.map(toItem);
 
@@ -181,11 +190,6 @@ async function sendJson(dbPath, req, res) {
         total_items: countRow ? countRow.cnt : items.length,
         items
     });
-
-    } catch (err) {
-        console.error("[ugc/toybox] sendSqliteJson error:", err);
-        res.status(500);
-    }
 }
 
 (async () => {
@@ -199,45 +203,34 @@ async function sendJson(dbPath, req, res) {
 // Creates a unique _id name to save in corresponding toybox directory
 async function getUniqueId(dbPath, base) {
     await createDb(dbPath);
-    const db = await openDb(dbPath);
-    let attempt = 0;
-    let candidate = base;
-    while (true) {
-        const row = await getDb(db, `select _id FROM toyboxes WHERE _id = ?`, [candidate]);
-        if (!row) {
-            db.close();
-            return candidate;
+    return withDb(dbPath, async (db) => {
+        let attempt = 0;
+        let candidate = base;
+        while (await getDb(db, `select _id FROM toyboxes WHERE _id = ?`, [candidate])) {
+            attempt++;
+            candidate = `${base}_${attempt}`;
         }
-        attempt++;
-        candidate = `${base}_${attempt}`;
-    }
+        return candidate;
+    });
 }
 
 async function toyboxExists(dbPath, id) {
     await createDb(dbPath);
-    const db = await openDb(dbPath);
-    const row = await getDb(db, `SELECT _id FROM toyboxes WHERE _id = ?`, [id]);
-    db.close();
+    const row = await withDb(dbPath, db => getDb(db, `SELECT _id FROM toyboxes WHERE _id = ?`, [id]));
     return Boolean(row);
 }
 
 /// Read endpoints
 
-router.get(["/public/in1/toybox", "/public/toybox"], async (req, res) => {
-    await sendJson(PUBLIC_DB, req, res);
+router.get(["/public/in1/toybox", "/public/toybox"], (req, res) => {
+    return sendJson(PUBLIC_DB, req, res);
 });
 
-router.get("/private/in1/toybox", token.authenticateToken, async (req, res) => {
-    try {
-        const userPaths = getUserPaths(req.user);
-        if (!userPaths) return sendInvalidUser(res);
+router.get("/private/in1/toybox", token.authenticateToken, (req, res) => {
+    const userPaths = getUserPaths(req.user);
+    if (!userPaths) return sendInvalidUser(res);
 
-        await createDb(userPaths.dbPath);
-        await sendJson(userPaths.dbPath, req, res);
-    } catch (err) {
-        console.error(err);
-        res.status(500);
-    }
+    return sendJson(userPaths.dbPath, req, res);
 });
 
 async function createToybox(dbPath, fields) {
@@ -254,33 +247,30 @@ async function createToybox(dbPath, fields) {
         last_update_time: now
     };
 
-    const db = await openDb(dbPath);
-    await runDb(db, `INSERT INTO toyboxes
+    await withDb(dbPath, db => runDb(db, `INSERT INTO toyboxes
         (_id, name, desc, type, version, shared, user_can_like, orig_size, comp_size, title, description, creator, zone, screenshot_info, creation_time, last_update_time)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
         row._id, row.name, row.desc, row.type, row.version, row.shared, row.user_can_like,
         row.orig_size, row.comp_size, row.title, row.description, row.creator, row.zone,
         row.screenshot_info, row.creation_time, row.last_update_time
-    ]);
-    db.close();
+    ]));
     return row;
 }
 
 // Overwrite keeps _id, creation_time and creator; returns null if the toybox doesn't exist.
 async function updateToybox(dbPath, id, fields) {
-    const db = await openDb(dbPath);
-    const result = await runDb(db, `UPDATE toyboxes SET
-        name = ?, desc = ?, zone = ?, title = ?, description = ?, orig_size = ?, comp_size = ?,
-        screenshot_info = ?, version = version + 1, last_update_time = ?
-        WHERE _id = ?`, [
-        fields.name, fields.desc, fields.zone, fields.title, fields.description,
-        fields.orig_size, fields.comp_size, fields.screenshot_info, Math.floor(Date.now() / 1000), id
-    ]);
-    const row = result.changes > 0
-        ? await getDb(db, `SELECT ${ITEM_COLUMNS} FROM toyboxes WHERE _id = ?`, [id])
-        : null;
-    db.close();
-    return row;
+    return withDb(dbPath, async (db) => {
+        const result = await runDb(db, `UPDATE toyboxes SET
+            name = ?, desc = ?, zone = ?, title = ?, description = ?, orig_size = ?, comp_size = ?,
+            screenshot_info = ?, version = version + 1, last_update_time = ?
+            WHERE _id = ?`, [
+            fields.name, fields.desc, fields.zone, fields.title, fields.description,
+            fields.orig_size, fields.comp_size, fields.screenshot_info, Math.floor(Date.now() / 1000), id
+        ]);
+        return result.changes > 0
+            ? getDb(db, `SELECT ${ITEM_COLUMNS} FROM toyboxes WHERE _id = ?`, [id])
+            : null;
+    });
 }
 
 // Parses the client multipart upload, existingId means overwrite (PUT) instead of create (POST).
@@ -292,7 +282,7 @@ async function handleUpload(req, res, dbPath, dir, existingId = null) {
             limits: { fileSize: MAX_UPLOAD_BYTES, fieldSize: MAX_UPLOAD_BYTES, files: 2, fields: 10 }
         });
     } catch {
-        return res.status(400).json({ error: "Expected multipart/form-data" });
+        return sendBadUpload(res, "expected multipart/form-data");
     }
     let meta = null;
     let contentBuffer = null;
@@ -300,7 +290,7 @@ async function handleUpload(req, res, dbPath, dir, existingId = null) {
     let shotInfo = null;
     let shotBuffer = null;
 
-    bb.on("file", (fieldname, stream, info) => {
+    bb.on("file", (fieldname, stream) => {
         if (fieldname === "screenshot") {
             // An oversized screenshot is dropped
             const chunks = [];
@@ -336,18 +326,17 @@ async function handleUpload(req, res, dbPath, dir, existingId = null) {
     });
     
     bb.on("error", (err) => {
-        console.error("[ugc/toybox] Malformed upload:", err.message);
         req.unpipe(bb);
         req.resume();
-        if (!res.headersSent) res.status(400).json({ error: "Malformed multipart body" });
+        if (!res.headersSent) sendBadUpload(res, `malformed multipart body (${err.message})`);
     });
 
     bb.on("finish", async () => {
         try {
-            if (tooLarge) return sendTooLarge(res);
-            if (!meta) return res.status(400).json({ error: "Missing or invalid JSON (contentInfo)" });
+            if (tooLarge) return sendBadUpload(res, "toybox too large");
+            if (!meta) return sendBadUpload(res, "missing or invalid JSON (contentInfo)");
             if (!contentBuffer || !isGzip(contentBuffer)) {
-                return res.status(415).json({ error: "Missing or invalid gzip (content)" });
+                return sendBadUpload(res, "missing or invalid gzip (content)");
             }
 
             const compSize = contentBuffer.length;
@@ -357,14 +346,14 @@ async function handleUpload(req, res, dbPath, dir, existingId = null) {
                 const raw = zlib.gunzipSync(contentBuffer, { maxOutputLength: MAX_TOYBOX_BYTES });
                 origSize = raw.length;
             } catch (err) {
-                if (err.code === "ERR_BUFFER_TOO_LARGE") return sendTooLarge(res);
+                if (err.code === "ERR_BUFFER_TOO_LARGE") return sendBadUpload(res, "toybox too large");
                 if (contentBuffer.length < 4) {
-                    return res.status(415).json({ error: "Corrupt gzip (too small for ISIZE)" });
+                    return sendBadUpload(res, "corrupt gzip (too small for ISIZE)");
                 }
                 origSize = contentBuffer.readUInt32LE(contentBuffer.length - 4);
             }
 
-            if (!meta.name) return res.status(400).json({ error: "Missing 'name' key (contentInfo)" });
+            if (!meta.name) return sendBadUpload(res, "missing 'name' key (contentInfo)");
             await createDb(dbPath);
 
             const screenshot = parseScreenshot(shotInfo, shotBuffer);
@@ -394,8 +383,8 @@ async function handleUpload(req, res, dbPath, dir, existingId = null) {
 
             res.status(200).json(toItem(row));
         } catch (err) {
-            console.error(err);
-            res.status(503).end();
+            console.error("[ugc/toybox] Upload failed:", err);
+            if (!res.headersSent) res.status(503).json(disneyError("SYSTEM.UNRESPONSIVE.AUTHENTICATE"));
         }
     });
 
@@ -418,13 +407,8 @@ router.put("/private/in1/toybox/:name", token.authenticateToken, async (req, res
     if (!userPaths) return sendInvalidUser(res);
 
     const id = req.params.name;
-    try {
-        if (!SAFE_ID.test(id) || !(await toyboxExists(userPaths.dbPath, id))) {
-            return res.status(404).end();
-        }
-    } catch (err) {
-        console.error(err);
-        return res.status(500).end();
+    if (!SAFE_ID.test(id) || !(await toyboxExists(userPaths.dbPath, id))) {
+        return res.status(404).end();
     }
 
     handleUpload(req, res, userPaths.dbPath, userPaths.dir, id);
@@ -432,13 +416,8 @@ router.put("/private/in1/toybox/:name", token.authenticateToken, async (req, res
 
 // Only IDs listed in the toybox DB are served, so other files in the folder (like db.sqlite3) can't be downloaded.
 async function handleDownload(res, dbPath, dir, id) {
-    try {
-        if (!SAFE_ID.test(id) || !(await toyboxExists(dbPath, id))) {
-            return res.status(404).end();
-        }
-    } catch (err) {
-        console.error(err);
-        return res.status(500).end();
+    if (!SAFE_ID.test(id) || !(await toyboxExists(dbPath, id))) {
+        return res.status(404).end();
     }
 
     const tb = path.join(dir, id);
@@ -456,68 +435,59 @@ async function handleDownload(res, dbPath, dir, id) {
 }
 
 router.get("/public/in1/toybox/:name", (req, res) => {
-    handleDownload(res, PUBLIC_DB, PUBLIC_PATH, req.params.name);
+    return handleDownload(res, PUBLIC_DB, PUBLIC_PATH, req.params.name);
 });
 
 router.get("/private/in1/toybox/:name", token.authenticateToken, (req, res) => {
     const userPaths = getUserPaths(req.user);
     if (!userPaths) return sendInvalidUser(res);
 
-    handleDownload(res, userPaths.dbPath, userPaths.dir, req.params.name);
+    return handleDownload(res, userPaths.dbPath, userPaths.dir, req.params.name);
 });
 
 // The client reads the screenshot's dimensions and format from the x-binary-metadata header
 async function handleScreenshot(res, dbPath, dir, id) {
     if (!SAFE_ID.test(id)) return res.status(404).end();
 
-    try {
-        await createDb(dbPath);
-        const db = await openDb(dbPath);
-        const row = await getDb(db, `SELECT screenshot_info FROM toyboxes WHERE _id = ?`, [id]);
-        db.close();
-        if (!row || !row.screenshot_info) return res.status(404).end();
+    await createDb(dbPath);
+    const row = await withDb(dbPath, db => getDb(db, `SELECT screenshot_info FROM toyboxes WHERE _id = ?`, [id]));
+    if (!row || !row.screenshot_info) return res.status(404).end();
 
-        const image = await fsp.readFile(screenshotPath(dir, id));
-        const metadata = { ...JSON.parse(row.screenshot_info), filename: `${id}.screenshot` };
-        res.set({
-            "Content-Type": "application/octet-stream",
-            "x-binary-metadata": JSON.stringify(metadata)
-        });
-        res.end(image);
+    let image;
+    try {
+        image = await fsp.readFile(screenshotPath(dir, id));
     } catch (err) {
         if (err.code === "ENOENT") return res.status(404).end();
-        console.error(err);
-        res.status(500).end();
+        throw err;
     }
+    const metadata = { ...JSON.parse(row.screenshot_info), filename: `${id}.screenshot` };
+    res.set({
+        "Content-Type": "application/octet-stream",
+        "x-binary-metadata": JSON.stringify(metadata)
+    });
+    res.end(image);
 }
 
 router.get("/public/in1/toybox/:name/screenshot", (req, res) => {
-    handleScreenshot(res, PUBLIC_DB, PUBLIC_PATH, req.params.name);
+    return handleScreenshot(res, PUBLIC_DB, PUBLIC_PATH, req.params.name);
 });
 
 router.get("/private/in1/toybox/:name/screenshot", token.authenticateToken, (req, res) => {
     const userPaths = getUserPaths(req.user);
     if (!userPaths) return sendInvalidUser(res);
 
-    handleScreenshot(res, userPaths.dbPath, userPaths.dir, req.params.name);
+    return handleScreenshot(res, userPaths.dbPath, userPaths.dir, req.params.name);
 });
 
 async function handleDelete(res, dbPath, dir, id) {
     if (!SAFE_ID.test(id)) return res.status(404).end();
 
-    try {
-        await createDb(dbPath);
-        const db = await openDb(dbPath);
-        const result = await runDb(db, `DELETE FROM toyboxes WHERE _id = ?`, [id]);
-        db.close();
+    await createDb(dbPath);
+    const result = await withDb(dbPath, db => runDb(db, `DELETE FROM toyboxes WHERE _id = ?`, [id]));
 
-        if (result.changes > 0) {
-            await fsp.rm(path.join(dir, id), { force: true });
-            await fsp.rm(screenshotPath(dir, id), { force: true });
-        }
-    } catch (err) {
-        console.error(err);
-        return res.status(500).end();
+    if (result.changes > 0) {
+        await fsp.rm(path.join(dir, id), { force: true });
+        await fsp.rm(screenshotPath(dir, id), { force: true });
     }
 
     res.status(204).end();
@@ -527,7 +497,7 @@ router.delete("/private/in1/toybox/:name", token.authenticateToken, (req, res) =
     const userPaths = getUserPaths(req.user);
     if (!userPaths) return sendInvalidUser(res);
 
-    handleDelete(res, userPaths.dbPath, userPaths.dir, req.params.name);
+    return handleDelete(res, userPaths.dbPath, userPaths.dir, req.params.name);
 });
 
 module.exports = router;
