@@ -9,10 +9,11 @@ const newsRouter = require("./news/news");
 const avatarRouter = require("./profile/avatar");
 const toyboxRouter = require("./ugc/toybox");
 const { initUsersDb } = require("./db/users");
+const config = require("./util/config");
 
 const app = express();
 app.use(express.json());
-const PORT = process.env.PORT || 4;
+const PORT = config.port;
 
 // app.use(
 //   "/assets",

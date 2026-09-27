@@ -1,7 +1,8 @@
+const config = require("./config");
+
 function getBaseUrl(req) {
-    const override = process.env.PUBLIC_BASE_URL;
-    if (override) {
-        return override.replace(/\/+$/, "");
+    if (config.publicBaseUrl) {
+        return config.publicBaseUrl;
     }
 
     const host = req.get("host");
