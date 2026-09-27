@@ -8,7 +8,8 @@ const PATHS = {
     savedGames: "/ugc/",
     ugc: "/ugc/",
     ugcPublicIn1: "/ugc/public/in1/",
-    ugcPrivateIn1: "/ugc/private/in1/"
+    ugcPrivateIn1: "/ugc/private/in1/",
+    geoip: "/geoip/"
 };
 
 // Unimplemented services still go to this server so their requests show up in the log.
@@ -22,7 +23,8 @@ const GAMES = {
             url_ugc_public: PATHS.ugcPublicIn1,
             url_ugc_private: PATHS.ugcPrivateIn1,
             url_profiles: PATHS.profiles,
-            server_avatar: PATHS.avatar
+            server_avatar: PATHS.avatar,
+            url_geoip_locale: PATHS.geoip
         },
         placeholders: [
             "url_didcreate",
@@ -42,7 +44,6 @@ const GAMES = {
             "url_activity_stream_social",
             "url_activity_stream_icons",
             "url_activity_stream_links",
-            "url_geoip_locale",
             "url_togo_videos"
         ]
     },

@@ -12,6 +12,7 @@ const platformsRouter = require("./profile/platforms");
 const newsRouter = require("./news/news");
 const avatarRouter = require("./profile/avatar");
 const toyboxRouter = require("./ugc/toybox");
+const geoipRouter = require("./misc/geoip");
 
 const app = express();
 
@@ -62,6 +63,7 @@ app.use("/profile/platforms", platformsRouter);
 app.use("/news/IOS/en-US", newsRouter);
 app.use("/profile/avatar", avatarRouter);
 app.use("/ugc", toyboxRouter);
+app.use("/geoip", geoipRouter);
 
 app.get("/", (req, res) => {
   res.type("text").send("Use on Disney Infinity client!");
