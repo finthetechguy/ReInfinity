@@ -4,6 +4,7 @@ const path = require("path");
 
 const config = require("./util/config");
 const { initUsersDb } = require("./db/users");
+const { disneyError } = require("./util/disneyErrors");
 const { createConfigRouter } = require("./endpoints/endpoints");
 const loginRouter = require("./authentication/login");
 const signupRouter = require("./authentication/signup");
@@ -64,6 +65,28 @@ app.use("/ugc", toyboxRouter);
 
 app.get("/", (req, res) => {
   res.type("text").send("Use on Disney Infinity client!");
+});
+
+// Errors
+
+app.use((req, res) => {
+  console.warn(`No route for ${req.method} ${req.originalUrl}`);
+  res.status(404).json({ code: "404", name: "SERVICE.NOT_FOUND" });
+});
+
+// Treated as an error handler
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+
+  const status = err.status >= 400 && err.status < 500 ? err.status : 500;
+  if (status < 500) {
+    // Only log the type to prevent sensitive data from being logged like passwords
+    console.warn(`${status} for ${req.method} ${req.originalUrl}: ${err.type || err.name}`);
+    return res.status(status).json(disneyError("INPUT.MISSING_DATA.UNKNOWN"));
+  }
+
+  console.error(`Error handling ${req.method} ${req.originalUrl}:`, err.stack);
+  res.status(500).json(disneyError("SYSTEM.UNRESPONSIVE.AUTHENTICATE"));
 });
 
 // Startup
