@@ -70,13 +70,37 @@ async function createDb(dbPath) {
         title TEXT,
         description TEXT,
         creator TEXT,
+        zone TEXT,
         creation_time INTEGER,
         last_update_time INTEGER
     );
     `;
     
     await runDb(db, createSql);
+
+    const columns = await allDb(db, "PRAGMA table_info(toyboxes)");
+    if (!columns.some(c => c.name === "zone")) {
+        await runDb(db, "ALTER TABLE toyboxes ADD COLUMN zone TEXT");
+    }
     db.close();
+}
+
+const ITEM_COLUMNS = "_id, name, desc, type, version, creator, zone, orig_size, comp_size, creation_time, last_update_time";
+
+function toItem(row) {
+    return {
+        _id: row._id,
+        name: row.name,
+        desc: row.desc,
+        type: row.type,
+        version: row.version,
+        creator: row.creator || "",
+        zone: row.zone || "",
+        orig_size: row.orig_size,
+        comp_size: row.comp_size,
+        creation_time: row.creation_time,
+        last_update_time: row.last_update_time
+    };
 }
 
 // Parses the URL parameters (e.g. page size)
@@ -120,7 +144,7 @@ async function sendJson(dbPath, req, res) {
 
         const { page_size, offset, orderBy, page } = parseListQuery(req);
 
-    const sql = `SELECT _id, name, desc, type, version FROM toyboxes
+    const sql = `SELECT ${ITEM_COLUMNS} FROM toyboxes
                  ORDER BY ${orderBy}
                  LIMIT ? OFFSET ?`;
     const rows = await allDb(db, sql, [page_size, offset]);
@@ -128,13 +152,7 @@ async function sendJson(dbPath, req, res) {
 
     db.close();
 
-    const items = rows.map(r => ({
-        _id: r._id,
-        name: r.name,
-        desc: r.desc,
-        type: r.type,
-        version: r.version
-    }));
+    const items = rows.map(toItem);
 
     res.json({
         page_size,
@@ -277,13 +295,15 @@ async function handleUpload(req, res, dbPath, dir) {
                 type: "game",
                 version: 1,
                 shared: 1,
-                user_can_like: 1
+                user_can_like: 1,
+                creator: meta.creator || "",
+                zone: meta.zone == null ? "" : String(meta.zone)
             };
 
             const db = await openDb(dbPath);
             const insertSql = `INSERT INTO toyboxes
-                (_id, name, desc, type, version, shared, user_can_like, orig_size, comp_size, title, description, creator, creation_time, last_update_time)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+                (_id, name, desc, type, version, shared, user_can_like, orig_size, comp_size, title, description, creator, zone, creation_time, last_update_time)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
             const creationTime = Math.floor(Date.now() / 1000);
             await runDb(db, insertSql, [
                 toyboxInfo._id,
@@ -297,7 +317,8 @@ async function handleUpload(req, res, dbPath, dir) {
                 compSize,
                 meta.title || meta.name || "",
                 meta.description || meta.desc || "",
-                meta.creator || "",
+                toyboxInfo.creator,
+                toyboxInfo.zone,
                 creationTime,
                 creationTime
             ]);
@@ -306,9 +327,13 @@ async function handleUpload(req, res, dbPath, dir) {
             await fsp.mkdir(dir, { recursive: true });
             await fsp.writeFile(path.join(dir, cleanName), contentBuffer);
 
-            res.status(200).json({
-                creation_time: creationTime
-            });
+            res.status(200).json(toItem({
+                ...toyboxInfo,
+                orig_size: origSize,
+                comp_size: compSize,
+                creation_time: creationTime,
+                last_update_time: creationTime
+            }));
         } catch (err) {
             console.error(err);
             res.status(503).end();
