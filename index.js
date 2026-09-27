@@ -1,6 +1,9 @@
 const express = require("express");
+const fs = require("fs/promises");
 const path = require("path");
 
+const config = require("./util/config");
+const { initUsersDb } = require("./db/users");
 const { createConfigRouter } = require("./endpoints/endpoints");
 const loginRouter = require("./authentication/login");
 const signupRouter = require("./authentication/signup");
@@ -8,25 +11,18 @@ const platformsRouter = require("./profile/platforms");
 const newsRouter = require("./news/news");
 const avatarRouter = require("./profile/avatar");
 const toyboxRouter = require("./ugc/toybox");
-const { initUsersDb } = require("./db/users");
-const config = require("./util/config");
 
 const app = express();
-app.use(express.json());
-const PORT = config.port;
 
-// app.use(
-//   "/assets",
-//   express.static(path.join(__dirname, "assets"), {
-//     fallthrough: false,
-//     maxAge: "1h",
-//     immutable: true
-//   })
-// );
+// Middleware
 
-app.get("/mobilenetwork/referralstore/bootstrap", (req, res) => {
-  res.sendFile(path.join(__dirname, "assets/mobilepage/index.html"));
+app.use((req, res, next) => {
+  const now = new Date().toISOString();
+  console.log(`[${now}] ${req.method} ${req.originalUrl} from ${req.ip}`);
+  next();
 });
+
+app.use(express.json());
 
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -36,29 +32,26 @@ app.use((req, res, next) => {
   next();
 });
 
-const fs = require('fs');
-app.get('/assets/avatars/default.png', (req, res) => {
-  const buf = fs.readFileSync('/Users/finle/Documents/ReInfinity/assets/avatars/default.png');
-  res.status(200);
+// Static files
+
+app.get("/mobilenetwork/referralstore/bootstrap", (req, res) => {
+  res.sendFile(path.join(__dirname, "assets/mobilepage/index.html"));
+});
+
+// Test
+app.get("/assets/avatars/default.png", async (req, res) => {
+  const image = await fs.readFile(path.join(__dirname, "assets/avatars/default.png"));
   res.set({
-    'Content-Type': 'image/png',
-    'Content-Length': String(buf.length),
-    'Cache-Control': 'no-store',           // disable validators entirely
-    'Connection': 'close',
-    'Accept-Ranges': 'none'
+    "Content-Type": "image/png",
+    "Content-Length": String(image.length),
+    "Cache-Control": "no-store",
+    "Connection": "close",
+    "Accept-Ranges": "none"
   });
-
-  // Make absolutely sure nothing sets Content-Encoding
-  res.removeHeader('Content-Encoding');
-  res.end(buf);
+  res.end(image);
 });
 
-
-app.use((req, res, next) => {
-  const now = new Date().toISOString();
-  console.log(`[${now}] ${req.method} ${req.originalUrl} from ${req.ip}`);
-  next();
-});
+// Services
 
 app.use("/infinity/config/v1/", createConfigRouter("in1"));
 app.use("/coregames/config/v1/", createConfigRouter("in2"));
@@ -73,10 +66,17 @@ app.get("/", (req, res) => {
   res.type("text").send("Use on Disney Infinity client!");
 });
 
+// Startup
+
 initUsersDb()
   .then(() => {
-    app.listen(PORT, () => {
-      console.log(`Server running at http://localhost:${PORT}`);
+    app.listen(config.port, () => {
+      console.log(`Server listening on port ${config.port}`);
+      if (config.publicBaseUrl) {
+        console.log(`Service URLs use ${config.publicBaseUrl}`);
+      } else {
+        console.log("Service URLs use the address of this server");
+      }
     });
   })
   .catch((err) => {
