@@ -10,7 +10,7 @@ _Platforms not listed are not supported by ReInfinity yet._
 | APPX (Windows Store) | ✅       | ➖       | ✅          | ✅           | ✅            | ✅          | ✅          | ✅             | ➖ *2           | 🔨          | ➖              |
 | iOS                  | ✅       | ✅       | ✅          | ❌ *1        | ✅            | ✅          | ❌ *1       | ❌ *1          | ➖ *2           | 🔨          | 🔨              |
 
-***1:** Client expects certain signatures, patch required.
+***1:** Client expects certain signatures.
 
 ***2:** The game menu never requests toybox screenshots on iOS or Windows. The server still stores the screenshots uploaded from them for platforms that show them (e.g. consoles).
 
