@@ -5,8 +5,11 @@ const CONFIG_PATH = path.join(__dirname, "..", "config.json");
 
 const DEFAULTS = {
     port: 4,
-    publicBaseUrl: null
+    publicBaseUrl: null,
+    entitlements: "all"
 };
+
+const ENTITLEMENTS_MAX_BYTES = 2047;
 
 const ENV_VARS = {
     port: "PORT",
@@ -63,6 +66,21 @@ function validatePublicBaseUrl(value) {
     return value.replace(/\/+$/, "");
 }
 
+function validateEntitlements(value) {
+    if (value === "all") {
+        return value;
+    }
+    if (!Array.isArray(value) || !value.every((id) => Number.isInteger(id) && id > 0)) {
+        throw new Error(`entitlements must be "all" or an array of item IDs (whole numbers), got ${JSON.stringify(value)}`);
+    }
+    const ids = [...new Set(value)];
+    const body = JSON.stringify({ _id: "00000000", inventory_items: Object.fromEntries(ids.map((id) => [id, 1])) });
+    if (body.length > ENTITLEMENTS_MAX_BYTES) {
+        throw new Error(`entitlements has too many items (${ids.length}): the response would be ${body.length} bytes, the game's limit is ${ENTITLEMENTS_MAX_BYTES}`);
+    }
+    return Object.freeze(ids);
+}
+
 function loadConfig() {
     const file = readConfigFile();
     for (const key of Object.keys(file)) {
@@ -73,7 +91,7 @@ function loadConfig() {
 
     const merged = {};
     for (const key of Object.keys(DEFAULTS)) {
-        const envValue = process.env[ENV_VARS[key]];
+        const envValue = ENV_VARS[key] && process.env[ENV_VARS[key]];
         if (envValue) {
             merged[key] = envValue;
         } else if (key in file) {
@@ -85,7 +103,8 @@ function loadConfig() {
 
     return Object.freeze({
         port: validatePort(merged.port),
-        publicBaseUrl: validatePublicBaseUrl(merged.publicBaseUrl)
+        publicBaseUrl: validatePublicBaseUrl(merged.publicBaseUrl),
+        entitlements: validateEntitlements(merged.entitlements)
     });
 }
 

@@ -2,6 +2,7 @@
 
 const express = require("express");
 const token = require("../authentication/token");
+const config = require("../util/config");
 
 const router = express.Router();
 
@@ -25,9 +26,9 @@ const PRODUCT_IDS = [
 ];
 
 // Keyed by item ID because the client ignores array elements and it also rejects bodies of 2048+ bytes.
-const GRANTED_ITEMS = Object.fromEntries(
-  [...LOCK_UIDS.map((uid) => LOCK_ID_BASE + uid), ...PRODUCT_IDS].map((id) => [id, 1])
-);
+const ALL_ITEMS = [...LOCK_UIDS.map((uid) => LOCK_ID_BASE + uid), ...PRODUCT_IDS];
+const itemIds = config.entitlements === "all" ? ALL_ITEMS : config.entitlements;
+const GRANTED_ITEMS = Object.fromEntries(itemIds.map((id) => [id, 1]));
 
 //1.0 client only decrypts 200 bodies, so it reads this JSON as plain text
 router.get("/:platform", token.authenticateToken, (req, res) => {

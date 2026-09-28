@@ -1,4 +1,5 @@
 {
     "port": 4,
-    "publicBaseUrl": null
+    "publicBaseUrl": null,
+    "entitlements": "all"
 }

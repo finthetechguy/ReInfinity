@@ -7,8 +7,8 @@ _Platforms not listed are not supported by ReInfinity yet._
 
 |                      | Sign-In | Sign-Up | Public TBS | Private TBS | TBS Download | TBS Upload | TBS Delete | TBS Overwrite | TBS Screenshot | Entitlements | Referral Store |
 |----------------------|---------|---------|------------|-------------|--------------|------------|------------|---------------|----------------|--------------|----------------|
-| APPX (Windows Store) | ✅       | ➖       | ✅          | ✅           | ✅            | ✅          | ✅          | ✅             | ➖ *2           | 🔨            | ➖              |
-| iOS                  | ✅       | ✅       | ✅          | ❌ *1        | ✅            | ✅          | ❌ *1       | ❌ *1          | ➖ *2           | 🔨            | 🔨              |
+| APPX (Windows Store) | ✅       | ➖       | ✅          | ✅           | ✅            | ✅          | ✅          | ✅             | ➖ *2           | 🔨          | ➖              |
+| iOS                  | ✅       | ✅       | ✅          | ❌ *1        | ✅            | ✅          | ❌ *1       | ❌ *1          | ➖ *2           | 🔨          | 🔨              |
 
 ***1:** Client expects certain signatures, patch required.
 
