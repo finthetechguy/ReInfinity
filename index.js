@@ -61,7 +61,7 @@ app.use("/coregames/config/v1/", createConfigRouter("in2"));
 app.use("/auth/authenticate", loginRouter);
 app.use("/auth", signupRouter);
 app.use("/profile/platforms", platformsRouter);
-app.use("/news/IOS/en-US", newsRouter);
+app.use("/news", newsRouter);
 app.use("/profile/avatar", avatarRouter);
 app.use("/ugc", toyboxRouter);
 app.use("/geoip", geoipRouter);
