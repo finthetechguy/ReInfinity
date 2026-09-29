@@ -29,6 +29,15 @@ router.get("/", (_req, res) => res.sendStatus(200));
 
 router.post("/", async (req, res) => {
 
+  // Console single sign-on handling
+  if (req.body?.grant_type === "assertion") {
+    const { assertion_platform, assertion_id } = req.body;
+    console.log(`Assertion sign-in from ${assertion_platform} (${assertion_id}): no linked account`);
+    return res
+      .status(400)
+      .json(disneyError("APP.ACCOUNT_NOT_LINKED"));
+  }
+
   if (limiter.isLocked(req.ip)) {
     return res
       .status(429)
