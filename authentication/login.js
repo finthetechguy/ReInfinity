@@ -7,6 +7,7 @@ const token = require("./token");
 const users = require("../db/users");
 const { hashPassword, isHashed, verifyPassword } = require("./password");
 const limiter = require("./loginLimiter");
+const consoleLinks = require("./consoleLinks");
 const { disneyError } = require("../util/disneyErrors");
 
 router.use(express.json());
@@ -27,11 +28,41 @@ router.use((req, _res, next) => {
 // Sometimes a GET request is made, send 200 to tell client it's online
 router.get("/", (_req, res) => res.sendStatus(200));
 
+// Password logins and console sign-ins get same reply
+function sendSignIn(res, user) {
+  const allowedBands = ["CHILD", "TEEN", "ADULT"];
+  const ageBand = allowedBands.includes(user.ageBand) ? user.ageBand : "ADULT";
+
+  const access_token = token.createSession(user.swid);
+  const refresh_token = token.randomIntToken();
+
+  return res.json({
+    ageBand,
+    access_token,
+    refresh_token,
+    first_name: user.first_name || "",
+    last_name: user.last_name || "",
+    username: user.username,
+    displayName: user.displayName || user.first_name || user.username,
+    swid: user.swid ?? null,
+  });
+}
+
 router.post("/", async (req, res) => {
 
-  // Console single sign-on handling
+  // Console single sign-on: without a linked account, this error ends the attempt quietly and the game shows the normal login.
   if (req.body?.grant_type === "assertion") {
     const { assertion_platform, assertion_id } = req.body;
+    let linkedUser = null;
+    try {
+      linkedUser = await consoleLinks.findLinkedUser(req.body);
+    } catch (err) {
+      console.error("Failed to read console links:", err);
+    }
+    if (linkedUser) {
+      console.log(`Assertion sign-in from ${assertion_platform} (${assertion_id}): signed in as ${linkedUser.username}`);
+      return sendSignIn(res, linkedUser);
+    }
     console.log(`Assertion sign-in from ${assertion_platform} (${assertion_id}): no linked account`);
     return res
       .status(400)
@@ -75,23 +106,9 @@ router.post("/", async (req, res) => {
   }
 
   limiter.clearFailures(req.ip);
+  await consoleLinks.linkFromBody(req.body, user);
 
-  const allowedBands = ["CHILD", "TEEN", "ADULT"];
-  const ageBand = allowedBands.includes(user.ageBand) ? user.ageBand : "ADULT";
-
-  const access_token = token.createSession(user.swid);
-  const refresh_token = token.randomIntToken();
-
-  return res.json({
-    ageBand,
-    access_token,
-    refresh_token,
-    first_name: user.first_name || "",
-    last_name: user.last_name || "",
-    username: user.username,
-    displayName: user.displayName || user.first_name || user.username,
-    swid: user.swid ?? null,
-  });
+  return sendSignIn(res, user);
 });
 
 module.exports = router;

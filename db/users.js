@@ -39,6 +39,15 @@ async function initUsersDb() {
     CREATE UNIQUE INDEX IF NOT EXISTS users_email ON users (email COLLATE NOCASE)
     WHERE email IS NOT NULL
     `);
+    await runDb(conn, `
+    CREATE TABLE IF NOT EXISTS console_links (
+        platform TEXT NOT NULL,
+        platform_id TEXT NOT NULL,
+        swid INTEGER NOT NULL REFERENCES users (swid),
+        linked_at TEXT NOT NULL,
+        PRIMARY KEY (platform, platform_id)
+    )
+    `);
     if (user_version < SCHEMA_VERSION) {
         await runDb(conn, `PRAGMA user_version = ${SCHEMA_VERSION}`);
     }
@@ -100,10 +109,32 @@ function updatePassword(swid, password) {
     return runDb(requireDb(), "UPDATE users SET password = ? WHERE swid = ?", [password, swid]);
 }
 
+function getUserByConsoleAccount(platform, platformId) {
+    return getDb(requireDb(), `
+    SELECT users.* FROM console_links JOIN users ON users.swid = console_links.swid
+    WHERE console_links.platform = ? AND console_links.platform_id = ?
+    `, [platform, platformId]);
+}
+
+// console account links to one user, linking again moves the link
+function linkConsoleAccount(platform, platformId, swid) {
+    return runDb(requireDb(), `
+    INSERT INTO console_links (platform, platform_id, swid, linked_at) VALUES (?, ?, ?, ?)
+    ON CONFLICT (platform, platform_id) DO UPDATE SET swid = excluded.swid, linked_at = excluded.linked_at
+    `, [platform, platformId, swid, new Date().toISOString()]);
+}
+
+function unlinkConsoleAccount(platform, platformId) {
+    return runDb(requireDb(), "DELETE FROM console_links WHERE platform = ? AND platform_id = ?", [platform, platformId]);
+}
+
 module.exports = {
     initUsersDb,
     getUserByUsername,
     getUserBySwid,
     createUser,
-    updatePassword
+    updatePassword,
+    getUserByConsoleAccount,
+    linkConsoleAccount,
+    unlinkConsoleAccount
 };

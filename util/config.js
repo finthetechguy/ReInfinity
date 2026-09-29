@@ -6,7 +6,8 @@ const CONFIG_PATH = path.join(__dirname, "..", "config.json");
 const DEFAULTS = {
     port: 4,
     publicBaseUrl: null,
-    entitlements: "all"
+    entitlements: "all",
+    consoleAccountLinking: false
 };
 
 const ENTITLEMENTS_MAX_BYTES = 2047;
@@ -81,6 +82,13 @@ function validateEntitlements(value) {
     return Object.freeze(ids);
 }
 
+function validateConsoleAccountLinking(value) {
+    if (typeof value !== "boolean") {
+        throw new Error(`consoleAccountLinking must be true or false, got ${JSON.stringify(value)}`);
+    }
+    return value;
+}
+
 function loadConfig() {
     const file = readConfigFile();
     for (const key of Object.keys(file)) {
@@ -104,7 +112,8 @@ function loadConfig() {
     return Object.freeze({
         port: validatePort(merged.port),
         publicBaseUrl: validatePublicBaseUrl(merged.publicBaseUrl),
-        entitlements: validateEntitlements(merged.entitlements)
+        entitlements: validateEntitlements(merged.entitlements),
+        consoleAccountLinking: validateConsoleAccountLinking(merged.consoleAccountLinking)
     });
 }
 

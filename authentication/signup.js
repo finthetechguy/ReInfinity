@@ -2,6 +2,7 @@ const express = require("express");
 const users = require("../db/users");
 const { hashPassword } = require("./password");
 const { disneyError } = require("../util/disneyErrors");
+const consoleLinks = require("./consoleLinks");
 
 const router = express.Router();
 const token = require("./token");
@@ -77,6 +78,7 @@ router.post("/create", async (req, res) => {
         console.error("Failed to create user:", err);
         return res.status(500).json({ code: "9999" });
     }
+    await consoleLinks.linkFromBody(userData, newUser);
 
     const access_token = token.createSession(newUser.swid);
     const refresh_token = token.randomIntToken();

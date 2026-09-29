@@ -104,6 +104,9 @@ initUsersDb()
       } else {
         console.log("Service URLs use the address of this server");
       }
+      if (config.consoleAccountLinking) {
+        console.warn("consoleAccountLinking enabled: consoles sign in by account ID, which can be faked. Only use if every player is trusted.");
+      }
     });
   })
   .catch((err) => {

@@ -1,5 +1,6 @@
 {
     "port": 4,
     "publicBaseUrl": null,
-    "entitlements": "all"
+    "entitlements": "all",
+    "consoleAccountLinking": false
 }
