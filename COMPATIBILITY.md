@@ -5,10 +5,11 @@ _Platforms not listed are not supported by ReInfinity yet._
 
 ## Disney Infinity 1.0
 
-|                      | Sign-In | Sign-Up | Public TBS | Private TBS | TBS Download | TBS Upload | TBS Delete | TBS Overwrite | TBS Screenshot | Entitlements | Referral Store |
+|                      | Sign-In | Sign-Up | Public TBS | Private TBS | TBS Download | TBS Upload | TBS Delete | TBS Overwrite | TBS Screenshot | Entitlements | News           |
 |----------------------|---------|---------|------------|-------------|--------------|------------|------------|---------------|----------------|--------------|----------------|
 | APPX (Windows Store) | ✅       | ➖       | ✅          | ✅           | ✅            | ✅          | ✅          | ✅             | ➖ *2           | 🔨          | ➖              |
-| iOS                  | ✅       | ✅       | ✅          | ❌ *1        | ✅            | ✅          | ❌ *1       | ❌ *1          | ➖ *2           | 🔨          | 🔨              |
+| iOS                  | ✅       | ✅       | ✅          | ❌ *1        | ✅            | ✅          | ❌ *1       | ❌ *1          | ➖ *2           | 🔨          | ➖              |
+| Wii U                | ✅       | ✅       | ✅          | ✅           | ✅            | ✅          | ✅          | ✅             | ✅              | ➖          | ✅              |
 
 ***1:** Client expects certain signatures.
 
