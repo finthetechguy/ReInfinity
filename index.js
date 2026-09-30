@@ -8,6 +8,7 @@ const { disneyError } = require("./util/disneyErrors");
 const { createConfigRouter } = require("./endpoints/endpoints");
 const loginRouter = require("./authentication/login");
 const signupRouter = require("./authentication/signup");
+const refreshRouter = require("./authentication/refresh");
 const platformsRouter = require("./profile/platforms");
 const newsRouter = require("./news/news");
 const avatarRouter = require("./profile/avatar");
@@ -59,6 +60,7 @@ app.get("/assets/avatars/default.png", async (req, res) => {
 app.use("/infinity/config/v1/", createConfigRouter("in1"));
 app.use("/coregames/config/v1/", createConfigRouter("in2"));
 app.use("/auth/authenticate", loginRouter);
+app.use("/auth/refresh", refreshRouter);
 app.use("/auth", signupRouter);
 app.use("/profile/platforms", platformsRouter);
 app.use("/news", newsRouter);

@@ -29,12 +29,12 @@ router.use((req, _res, next) => {
 router.get("/", (_req, res) => res.sendStatus(200));
 
 // Password logins and console sign-ins get same reply
-function sendSignIn(res, user) {
+async function sendSignIn(res, user) {
   const allowedBands = ["CHILD", "TEEN", "ADULT"];
   const ageBand = allowedBands.includes(user.ageBand) ? user.ageBand : "ADULT";
 
   const access_token = token.createSession(user.swid);
-  const refresh_token = token.randomIntToken();
+  const refresh_token = await token.createRefreshToken(user.swid);
 
   return res.json({
     ageBand,

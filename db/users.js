@@ -48,6 +48,13 @@ async function initUsersDb() {
         PRIMARY KEY (platform, platform_id)
     )
     `);
+    await runDb(conn, `
+    CREATE TABLE IF NOT EXISTS refresh_tokens (
+        token_hash TEXT PRIMARY KEY,
+        swid INTEGER NOT NULL REFERENCES users (swid),
+        expires_at INTEGER NOT NULL
+    )
+    `);
     if (user_version < SCHEMA_VERSION) {
         await runDb(conn, `PRAGMA user_version = ${SCHEMA_VERSION}`);
     }
@@ -128,6 +135,19 @@ function unlinkConsoleAccount(platform, platformId) {
     return runDb(requireDb(), "DELETE FROM console_links WHERE platform = ? AND platform_id = ?", [platform, platformId]);
 }
 
+function addRefreshToken(tokenHash, swid, expiresAt) {
+    return runDb(requireDb(), "INSERT INTO refresh_tokens (token_hash, swid, expires_at) VALUES (?, ?, ?)", [tokenHash, swid, expiresAt]);
+}
+
+// Deletes refresh token after so it cannot be reused
+function takeRefreshToken(tokenHash) {
+    return getDb(requireDb(), "DELETE FROM refresh_tokens WHERE token_hash = ? RETURNING swid, expires_at", [tokenHash]);
+}
+
+function deleteExpiredRefreshTokens(now) {
+    return runDb(requireDb(), "DELETE FROM refresh_tokens WHERE expires_at <= ?", [now]);
+}
+
 module.exports = {
     initUsersDb,
     getUserByUsername,
@@ -136,5 +156,8 @@ module.exports = {
     updatePassword,
     getUserByConsoleAccount,
     linkConsoleAccount,
-    unlinkConsoleAccount
+    unlinkConsoleAccount,
+    addRefreshToken,
+    takeRefreshToken,
+    deleteExpiredRefreshTokens
 };

@@ -81,7 +81,7 @@ router.post("/create", async (req, res) => {
     await consoleLinks.linkFromBody(userData, newUser);
 
     const access_token = token.createSession(newUser.swid);
-    const refresh_token = token.randomIntToken();
+    const refresh_token = await token.createRefreshToken(newUser.swid);
 
     res.json({
         ageBand: newUser.ageBand,
