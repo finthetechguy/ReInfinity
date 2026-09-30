@@ -3,6 +3,8 @@
 const express = require("express");
 const token = require("../authentication/token");
 const config = require("../util/config");
+const users = require("../db/users");
+const { normaliseCode } = require("../util/redeemCode");
 
 const router = express.Router();
 
@@ -35,6 +37,56 @@ router.get("/:platform", token.authenticateToken, (req, res) => {
   res.status(203).json({
     _id: String(req.user.swid),
     inventory_items: GRANTED_ITEMS
+  });
+});
+
+const REDEEM_CODES = new Map(config.redeemCodes.map((entry) => [entry.code, entry]));
+
+const REDEEM_ERRORS = {
+  UNKNOWN: "40004",
+  EXPIRED: "40003",
+  INACTIVE: "40940",
+  ALREADY_REDEEMED: "40902",
+  USED_BY_OTHER: "40903",
+  LIMIT_REACHED: "40930",
+  BAD_REQUEST: "40956"
+};
+
+function sendRedeemError(res, reason) {
+  return res.status(203).json({ code: REDEEM_ERRORS[reason] });
+}
+
+router.post("/:platform/redeem", express.json({ type: "*/*" }), token.authenticateToken, async (req, res) => {
+  const typed = req.body?.code;
+  if (typeof typed !== "string" || !typed.trim()) {
+    return sendRedeemError(res, "BAD_REQUEST");
+  }
+
+  const { swid, username } = req.user;
+  const entry = REDEEM_CODES.get(normaliseCode(typed));
+  let reason = null;
+  if (!entry) {
+    reason = "UNKNOWN";
+  } else if (!entry.active) {
+    reason = "INACTIVE";
+  } else if (entry.expiresAt !== null && Date.now() > entry.expiresAt) {
+    reason = "EXPIRED";
+  } else if (await users.hasRedeemedCode(entry.code, swid)) {
+    reason = "ALREADY_REDEEMED";
+  } else if (!(await users.redeemCode(entry.code, swid, entry.maxUses))) {
+    reason = entry.maxUses === 1 ? "USED_BY_OTHER" : "LIMIT_REACHED";
+  }
+
+  if (reason) {
+    console.log(`Redeem code "${typed}" rejected for ${username}: ${reason}`);
+    return sendRedeemError(res, reason);
+  }
+
+  console.log(`Redeem code ${entry.code} (${entry.name}) redeemed by ${username}`);
+  return res.status(203).json({
+    _id: String(swid),
+    campaign: { key: entry.name },
+    inventory_items_gained: Object.fromEntries(entry.items.map((id) => [id, 1]))
   });
 });
 

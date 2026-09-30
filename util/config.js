@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const { normaliseCode } = require("./redeemCode");
 
 const CONFIG_PATH = path.join(__dirname, "..", "config.json");
 
@@ -7,7 +8,8 @@ const DEFAULTS = {
     port: 4,
     publicBaseUrl: null,
     entitlements: "all",
-    consoleAccountLinking: false
+    consoleAccountLinking: false,
+    redeemCodes: []
 };
 
 const ENTITLEMENTS_MAX_BYTES = 2047;
@@ -89,6 +91,52 @@ function validateConsoleAccountLinking(value) {
     return value;
 }
 
+function validateRedeemCodes(value) {
+    if (!Array.isArray(value)) {
+        throw new Error(`redeemCodes must be an array, got ${JSON.stringify(value)}`);
+    }
+    const seen = new Set();
+    return Object.freeze(value.map((entry, i) => {
+        const where = `redeemCodes[${i}]`;
+        if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+            throw new Error(`${where} must be an object`);
+        }
+        const code = typeof entry.code === "string" ? normaliseCode(entry.code) : "";
+        if (!/^[A-Z0-9]{1,12}$/.test(code)) {
+            throw new Error(`${where}.code must be 1 to 12 letters or digits (dashes allowed), got ${JSON.stringify(entry.code)}`);
+        }
+        if (seen.has(code)) {
+            throw new Error(`${where}.code "${entry.code}" is listed more than once`);
+        }
+        seen.add(code);
+
+        const { items, name = entry.code, maxUses = null, expires = null, active = true } = entry;
+        if (!Array.isArray(items) || !items.length || !items.every((id) => Number.isInteger(id) && id > 0)) {
+            throw new Error(`${where}.items must be a non-empty array of item IDs (whole numbers)`);
+        }
+        if (typeof name !== "string" || !name) {
+            throw new Error(`${where}.name must be a non-empty string`);
+        }
+        if (maxUses !== null && (!Number.isInteger(maxUses) || maxUses < 1)) {
+            throw new Error(`${where}.maxUses must be a whole number of at least 1, got ${JSON.stringify(maxUses)}`);
+        }
+        const expiresAt = expires === null ? null : Date.parse(expires);
+        if (Number.isNaN(expiresAt) || (expires !== null && typeof expires !== "string")) {
+            throw new Error(`${where}.expires must be a date such as "2027-01-01", got ${JSON.stringify(expires)}`);
+        }
+        if (typeof active !== "boolean") {
+            throw new Error(`${where}.active must be true or false, got ${JSON.stringify(active)}`);
+        }
+
+        const uniqueItems = [...new Set(items)];
+        const body = JSON.stringify({ _id: "00000000", campaign: { key: name }, inventory_items_gained: Object.fromEntries(uniqueItems.map((id) => [id, 1])) });
+        if (body.length > ENTITLEMENTS_MAX_BYTES) {
+            throw new Error(`${where} has too many items: the response would be ${body.length} bytes, the game's limit is ${ENTITLEMENTS_MAX_BYTES}`);
+        }
+        return Object.freeze({ code, name, items: Object.freeze(uniqueItems), maxUses, expiresAt, active });
+    }));
+}
+
 function loadConfig() {
     const file = readConfigFile();
     for (const key of Object.keys(file)) {
@@ -113,7 +161,8 @@ function loadConfig() {
         port: validatePort(merged.port),
         publicBaseUrl: validatePublicBaseUrl(merged.publicBaseUrl),
         entitlements: validateEntitlements(merged.entitlements),
-        consoleAccountLinking: validateConsoleAccountLinking(merged.consoleAccountLinking)
+        consoleAccountLinking: validateConsoleAccountLinking(merged.consoleAccountLinking),
+        redeemCodes: validateRedeemCodes(merged.redeemCodes)
     });
 }
 

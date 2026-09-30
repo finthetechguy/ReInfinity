@@ -55,6 +55,14 @@ async function initUsersDb() {
         expires_at INTEGER NOT NULL
     )
     `);
+    await runDb(conn, `
+    CREATE TABLE IF NOT EXISTS code_redemptions (
+        code TEXT NOT NULL,
+        swid INTEGER NOT NULL REFERENCES users (swid),
+        redeemed_at TEXT NOT NULL,
+        PRIMARY KEY (code, swid)
+    )
+    `);
     if (user_version < SCHEMA_VERSION) {
         await runDb(conn, `PRAGMA user_version = ${SCHEMA_VERSION}`);
     }
@@ -148,6 +156,18 @@ function deleteExpiredRefreshTokens(now) {
     return runDb(requireDb(), "DELETE FROM refresh_tokens WHERE expires_at <= ?", [now]);
 }
 
+function hasRedeemedCode(code, swid) {
+    return getDb(requireDb(), "SELECT 1 FROM code_redemptions WHERE code = ? AND swid = ?", [code, swid]);
+}
+
+async function redeemCode(code, swid, maxUses) {
+    const result = await runDb(requireDb(), `
+    INSERT INTO code_redemptions (code, swid, redeemed_at)
+    SELECT ?, ?, ? WHERE ? IS NULL OR (SELECT COUNT(*) FROM code_redemptions WHERE code = ?) < ?
+    `, [code, swid, new Date().toISOString(), maxUses, code, maxUses]);
+    return result.changes === 1;
+}
+
 module.exports = {
     initUsersDb,
     getUserByUsername,
@@ -159,5 +179,7 @@ module.exports = {
     unlinkConsoleAccount,
     addRefreshToken,
     takeRefreshToken,
-    deleteExpiredRefreshTokens
+    deleteExpiredRefreshTokens,
+    hasRedeemedCode,
+    redeemCode
 };
