@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>entry</key>
+	<dict>
+		<key>cell</key>
+		<string>PSLinkCell</string>
+		<key>label</key>
+		<string>ReInfinity</string>
+	</dict>
+	<key>title</key>
+	<string>ReInfinity</string>
+	<key>items</key>
+	<array>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>footerText</key>
+			<string>Redirects Disney Infinity 1.0 server requests to specified server and port. Changes apply the next time the game starts.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>defaults</key>
+			<string>com.reinfinity.ios</string>
+			<key>key</key>
+			<string>enabled</string>
+			<key>default</key>
+			<true/>
+			<key>label</key>
+			<string>Enabled</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Server</string>
+			<key>footerText</key>
+			<string>The server's IP address or domain.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>defaults</key>
+			<string>com.reinfinity.ios</string>
+			<key>key</key>
+			<string>server</string>
+			<key>label</key>
+			<string>Server</string>
+			<key>placeholder</key>
+			<string>192.168.0.10</string>
+			<key>isURL</key>
+			<true/>
+			<key>noAutoCorrect</key>
+			<true/>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>defaults</key>
+			<string>com.reinfinity.ios</string>
+			<key>key</key>
+			<string>port</string>
+			<key>default</key>
+			<string>8080</string>
+			<key>label</key>
+			<string>Port</string>
+			<key>isNumeric</key>
+			<true/>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>footerText</key>
+			<string>Used for servers using HTTPS with a valid certificate.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>defaults</key>
+			<string>com.reinfinity.ios</string>
+			<key>key</key>
+			<string>https</string>
+			<key>default</key>
+			<false/>
+			<key>label</key>
+			<string>Use HTTPS</string>
+		</dict>
+	</array>
+</dict>
+</plist>

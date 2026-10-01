@@ -25,7 +25,8 @@ fi
 
 rm -rf "$BUILD"
 mkdir -p "$BUILD"
-rsync -a --exclude '.theos' --exclude 'packages' "$SRC/" "$BUILD/"
+# Files on /mnt/c are all 0777, which would make the packaged layout/ folders world-writable on the device.
+rsync -a --chmod=D755,F644 --exclude '.theos' --exclude 'packages' "$SRC/" "$BUILD/"
 
 make -C "$BUILD" clean >/dev/null 2>&1 || true
 make -C "$BUILD" package FINALPACKAGE=1
