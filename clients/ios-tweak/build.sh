@@ -6,7 +6,6 @@ set -euo pipefail
 export THEOS
 
 SRC="$(cd "$(dirname "$0")" && pwd)"
-BUILD="${TMPDIR:-/tmp}/reinf-ios-tweak-build"
 
 # The theos/sdks iPhoneOS9.3 SDK is missing the liblaunch stub that libSystem re-exports at 6.0 deployment target
 LAUNCH_TBD="$THEOS/sdks/iPhoneOS9.3.sdk/usr/lib/system/liblaunch.tbd"
@@ -23,15 +22,8 @@ compatibility-version: 1
 TBD
 fi
 
-rm -rf "$BUILD"
-mkdir -p "$BUILD"
-# Files on /mnt/c are all 0777, which would make the packaged layout/ folders world-writable on the device.
-rsync -a --chmod=D755,F644 --exclude '.theos' --exclude 'packages' "$SRC/" "$BUILD/"
+make -C "$SRC" clean >/dev/null 2>&1 || true
+make -C "$SRC" package FINALPACKAGE=1
 
-make -C "$BUILD" clean >/dev/null 2>&1 || true
-make -C "$BUILD" package FINALPACKAGE=1
-
-mkdir -p "$SRC/packages"
-cp -f "$BUILD"/packages/*.deb "$SRC/packages/"
-echo "==> Copied to $SRC/packages/:"
+echo "==> Built:"
 ls -1 "$SRC/packages/"*.deb

@@ -2,7 +2,8 @@
 
 #define LOG_PREFIX @"[ReInfinity]"
 
-static NSString *const kVersion = @"0.2.0";
+// Keep in step with Version in control.
+static NSString *const kVersion = @"1.0.0";
 static NSString *const kPrefsDomain = @"com.reinfinity.ios";
 static NSString *const kPrefsPath = @"/var/mobile/Library/Preferences/com.reinfinity.ios.plist";
 static const NSInteger kDefaultPort = 4;
