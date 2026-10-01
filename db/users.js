@@ -1,6 +1,6 @@
 const path = require("path");
 const crypto = require("crypto");
-const { openDb, runDb, getDb } = require("./sqlite");
+const { openDb, runDb, getDb, allDb } = require("./sqlite");
 
 const USERS_DB = path.join(__dirname, "users.sqlite3");
 const SCHEMA_VERSION = 2;
@@ -160,6 +160,10 @@ function hasRedeemedCode(code, swid) {
     return getDb(requireDb(), "SELECT 1 FROM code_redemptions WHERE code = ? AND swid = ?", [code, swid]);
 }
 
+function getRedeemedCodes(swid) {
+    return allDb(requireDb(), "SELECT code FROM code_redemptions WHERE swid = ?", [swid]);
+}
+
 async function redeemCode(code, swid, maxUses) {
     const result = await runDb(requireDb(), `
     INSERT INTO code_redemptions (code, swid, redeemed_at)
@@ -181,5 +185,6 @@ module.exports = {
     takeRefreshToken,
     deleteExpiredRefreshTokens,
     hasRedeemedCode,
-    redeemCode
+    redeemCode,
+    getRedeemedCodes
 };

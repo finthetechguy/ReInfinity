@@ -32,15 +32,27 @@ const ALL_ITEMS = [...LOCK_UIDS.map((uid) => LOCK_ID_BASE + uid), ...PRODUCT_IDS
 const itemIds = config.entitlements === "all" ? ALL_ITEMS : config.entitlements;
 const GRANTED_ITEMS = Object.fromEntries(itemIds.map((id) => [id, 1]));
 
+const REDEEM_CODES = new Map(config.redeemCodes.map((entry) => [entry.code, entry]));
+
+// A player who redeemed every code must still get a body under the client's limit, so check the worst case at startup.
+const allRedeemable = config.redeemCodes.flatMap((entry) => entry.items);
+const worstCase = JSON.stringify({ _id: "00000000", inventory_items: Object.fromEntries([...itemIds, ...allRedeemable].map((id) => [id, 1])) });
+if (worstCase.length > config.ENTITLEMENTS_MAX_BYTES) {
+  console.error(`Config error: entitlements plus every redeemCodes item would make a ${worstCase.length} byte response, the game's limit is ${config.ENTITLEMENTS_MAX_BYTES}`);
+  process.exit(1);
+}
+
 //1.0 client only decrypts 200 bodies, so it reads this JSON as plain text
-router.get("/:platform", token.authenticateToken, (req, res) => {
+router.get("/:platform", token.authenticateToken, async (req, res) => {
+  const items = { ...GRANTED_ITEMS };
+  for (const { code } of await users.getRedeemedCodes(req.user.swid)) {
+    for (const id of REDEEM_CODES.get(code)?.items ?? []) items[id] = 1;
+  }
   res.status(203).json({
     _id: String(req.user.swid),
-    inventory_items: GRANTED_ITEMS
+    inventory_items: items
   });
 });
-
-const REDEEM_CODES = new Map(config.redeemCodes.map((entry) => [entry.code, entry]));
 
 const REDEEM_ERRORS = {
   UNKNOWN: "40004",

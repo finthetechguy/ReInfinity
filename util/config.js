@@ -158,6 +158,7 @@ function loadConfig() {
     }
 
     return Object.freeze({
+        ENTITLEMENTS_MAX_BYTES,
         port: validatePort(merged.port),
         publicBaseUrl: validatePublicBaseUrl(merged.publicBaseUrl),
         entitlements: validateEntitlements(merged.entitlements),
