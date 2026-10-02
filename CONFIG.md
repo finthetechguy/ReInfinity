@@ -26,7 +26,7 @@ Various items granted to the user, only used on iOS, Android and Windows Store p
 - Whole set is capped so the resulting server response stays under 2047 bytes (ENTITLEMENTS_MAX_BYTES).
 - Examples:
   - "entitlements": "all" - grant all entitlements.
-  - "entitlements": [1000001, 1000002, 1000003] — grant only these item IDs.
+  - "entitlements": [1000001, 1000002, 1000003] - grant only these item IDs.
  
 ### `redeemCodes`
 Defining a web code which can be redeemed on iOS, Android or Windows Store platforms.
