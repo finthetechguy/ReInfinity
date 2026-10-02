@@ -6,7 +6,7 @@
 static NSString *const kVersion = @"1.0.0";
 static NSString *const kPrefsDomain = @"com.reinfinity.ios";
 static NSString *const kPrefsPath = @"/var/mobile/Library/Preferences/com.reinfinity.ios.plist";
-static const NSInteger kDefaultPort = 4;
+static const NSInteger kDefaultPort = 8080;
 
 // Requests to these hosts are sent to the server instead.
 static NSString *const kRewriteHosts[] = {
