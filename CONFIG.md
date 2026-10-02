@@ -17,7 +17,7 @@ The base URL of the server.
 - Can be overridden by PUBLIC_BASE_URL environment variable.
 - Examples:
   - "publicBaseUrl": null
-  - "publicBaseUrl": "https://infinity.example.com"
+  - "publicBaseUrl": "https://example.com"
 
 ### `entitlements`
 Various items granted to the user, only used on iOS, Android and Windows Store platforms.
@@ -25,7 +25,7 @@ Various items granted to the user, only used on iOS, Android and Windows Store p
 - Default: "all"
 - Whole set is capped so the resulting server response stays under 2047 bytes (ENTITLEMENTS_MAX_BYTES).
 - Examples:
-  - "entitlements": "all" — grant all entitlements.
+  - "entitlements": "all" - grant all entitlements.
   - "entitlements": [1000001, 1000002, 1000003] — grant only these item IDs.
  
 ### `redeemCodes`
