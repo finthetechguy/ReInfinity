@@ -64,6 +64,43 @@ static int parse_port(const char *v, u32 *out)
 	return 1;
 }
 
+static int valid_title(const char *id)
+{
+	for (int i = 0; i < 9; i++)
+		if (!((id[i] >= 'A' && id[i] <= 'Z') || (id[i] >= '0' && id[i] <= '9')))
+			return 0;
+	return 1;
+}
+
+/* Title IDs separated by commas or spaces, e.g. "BLUS30977, BLES01843". */
+static void parse_titles(config_t *c, char *v, u32 number)
+{
+	c->title_count = 0;
+	for (;;) {
+		while (*v == ',' || *v == ' ' || *v == '\t')
+			v++;
+		if (!*v)
+			return;
+		char *id = v;
+		while (*v && *v != ',' && *v != ' ' && *v != '\t')
+			v++;
+		char end = *v;
+		*v = 0;
+		for (char *ch = id; *ch; ch++)
+			if (*ch >= 'a' && *ch <= 'z')
+				*ch -= 'a' - 'A';
+		if (v - id != 9 || !valid_title(id)) {
+			log_printf("config.txt line %u: \"%s\" isn't a title ID like BLUS30977, so it's ignored", number, id);
+		} else if (c->title_count == CONFIG_TITLES_MAX) {
+			log_printf("config.txt line %u: only the first %u titles are used", number, CONFIG_TITLES_MAX);
+			return;
+		} else {
+			memcpy(c->titles[c->title_count++], id, 10);
+		}
+		*v = end;
+	}
+}
+
 static void parse_line(config_t *c, char *line, u32 number)
 {
 	if (!*line || *line == '#')
@@ -97,6 +134,9 @@ static void parse_line(config_t *c, char *line, u32 number)
 				   number, value);
 		else
 			memcpy(c->server, value, strlen(value) + 1);
+		return;
+	} else if (strcasecmp(key, "titles") == 0) {
+		parse_titles(c, value, number);
 		return;
 	} else {
 		log_printf("config.txt line %u: unknown setting \"%s\"", number, key);
@@ -144,4 +184,11 @@ void config_load(config_t *c)
 	log_printf("config: enabled %s, server \"%s\", port %u, psn_bypass %s, log %s, web_port %u",
 		   c->enabled ? "true" : "false", c->server, c->port, c->psn_bypass ? "true" : "false",
 		   c->log_all ? "true" : "false", c->web_port);
+	if (c->title_count) {
+		char list[CONFIG_TITLES_MAX * 11];
+		u32 len = 0;
+		for (u32 i = 0; i < c->title_count; i++)
+			len += str_format(list + len, sizeof(list) - len, "%s%s", i ? " " : "", c->titles[i]);
+		log_printf("config: titles %s", list);
+	}
 }

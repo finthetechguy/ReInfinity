@@ -21,6 +21,23 @@
       "functions": [
         { "nid": "0xa02d46e7", "symbol": "vshtask_notify" }
       ]
+    },
+    {
+      "library": "vshmain",
+      "version": 1,
+      "attributes": 1,
+      "functions": [
+        { "nid": "0x0624d3ae", "symbol": "vsh_game_pid" }
+      ]
+    },
+    {
+      "library": "paf",
+      "version": 1,
+      "attributes": 1,
+      "functions": [
+        { "nid": "0xf21655f3", "symbol": "paf_view_find" },
+        { "nid": "0x23afb290", "symbol": "paf_view_get_interface" }
+      ]
     }
   ]
 }

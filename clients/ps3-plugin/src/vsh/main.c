@@ -1,25 +1,21 @@
-/* The VSH (XMB) plugin, Stage 1: proves it loads, logs, shows a notification and unloads
-   cleanly. Later stages add the game watcher, the settings page and the config file. */
+/* The VSH (XMB) plugin, loaded at boot from boot_plugins.txt: watches for Disney Infinity and
+   loads the game module into it (game.c). Stage 4 adds the settings page. */
+#include "game.h"
 #include "log.h"
 #include "paths.h"
 #include "thread.h"
 
 #define MAIN_PRIO  3000
 #define MAIN_STACK 0x4000
-
-/* vshtask_A02D46E7: shows a notification on the XMB or over a game. The first argument is 0. */
-s32 vshtask_notify(s32 unk, const char *msg);
+#define POLL_MS    1000
 
 static thread_t main_thread;
 
 static void plugin_main(thread_t *t)
 {
-	log_printf("main thread running");
-	if (!thread_sleep(t, 3000)) /* let the XMB settle first */
-		return;
-	log_printf("showing notification");
-	s32 result = vshtask_notify(0, "ReInfinity: VSH plugin loaded (Stage 1 test)");
-	log_printf("notification shown (0x%x)", result);
+	log_printf("watching for Disney Infinity");
+	while (thread_sleep(t, POLL_MS))
+		game_poll();
 }
 
 /* Cobra runs this on a kernel-made thread, so it may only use what lv2.h allows. */
@@ -29,7 +25,7 @@ int module_start(u64 args, u64 argp)
 	(void)argp;
 	s32 mkdir_result = sys_fs_mkdir(RI_DIR, 0777);
 	log_init(RI_VSH_LOG);
-	log_printf("ReInfinity VSH plugin loaded (build " __DATE__ " " __TIME__ "), Stage 1 test");
+	log_printf("ReInfinity VSH plugin loaded (build " __DATE__ " " __TIME__ ")");
 	log_printf("mkdir " RI_DIR ": 0x%x (0x80010014 = already there)", mkdir_result);
 	prx_log_layout();
 	if (!prx_check_imports()) {

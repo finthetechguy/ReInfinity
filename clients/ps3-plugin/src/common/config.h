@@ -3,7 +3,8 @@
 
 #include "lv2.h"
 
-#define CONFIG_HOST_MAX 253
+#define CONFIG_HOST_MAX   253
+#define CONFIG_TITLES_MAX 32
 
 typedef struct {
 	int enabled;
@@ -13,6 +14,8 @@ typedef struct {
 	int psn_bypass;
 	u32 web_port;
 	int log_all;
+	u32 title_count; /* 0: the VSH plugin's built-in list */
+	char titles[CONFIG_TITLES_MAX][10];
 } config_t;
 
 /* The defaults, then the file's values. Problems are logged, and a bad value is ignored. */

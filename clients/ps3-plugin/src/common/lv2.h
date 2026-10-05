@@ -63,6 +63,10 @@ static inline s32 sys_fs_mkdir(const char *path, u32 mode)
 {
 	return (s32)lv2_syscall(811, (uintptr_t)path, mode, 0, 0, 0, 0);
 }
+static inline s32 sys_fs_unlink(const char *path)
+{
+	return (s32)lv2_syscall(814, (uintptr_t)path, 0, 0, 0, 0, 0);
+}
 
 /* Process. The PARAM.SFO buffer is 0x40 bytes, with the title ID at +1. */
 static inline u32 sys_process_getpid(void)
