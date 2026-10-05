@@ -16,13 +16,17 @@ MODULES   = game vsh
 SIGN_game ?= game
 SIGN_vsh  ?= vsh
 
-CFLAGS  = -O2 -mcpu=cell -mabi=elfv1 -mno-altivec -mno-vsx -ffreestanding -fno-pic -fno-common \
+# -mstrict-align: game structs are only 4-byte aligned, and gcc would otherwise copy them with
+# 8-byte loads.
+CFLAGS  = -O2 -mcpu=cell -mabi=elfv1 -mno-altivec -mno-vsx -mstrict-align -ffreestanding -fno-pic -fno-common \
           -fno-stack-protector -fno-asynchronous-unwind-tables -fno-exceptions \
           -fno-tree-loop-distribute-patterns -fno-jump-tables -Wall -Wextra -Isrc/common
 
 COMMON_SRCS = $(wildcard src/common/*.c)
+COMMON_ASM  = $(wildcard src/common/*.S)
 COMMON_HDRS = $(wildcard src/common/*.h)
-objs = $(patsubst src/%.c,$(BUILD)/%.o,$(COMMON_SRCS) $(wildcard src/$(1)/*.c)) $(BUILD)/$(1)_imports.o
+objs = $(patsubst src/%.c,$(BUILD)/%.o,$(COMMON_SRCS) $(wildcard src/$(1)/*.c)) \
+       $(patsubst src/%.S,$(BUILD)/%.o,$(COMMON_ASM)) $(BUILD)/$(1)_imports.o
 game_OBJS = $(call objs,game)
 vsh_OBJS  = $(call objs,vsh)
 
@@ -31,6 +35,10 @@ all: $(MODULES:%=$(BUILD)/reinfinity_%.prx)
 sprx: $(MODULES:%=$(BUILD)/reinfinity_%.sprx)
 
 $(BUILD)/%.o: src/%.c $(COMMON_HDRS) $(wildcard src/*/*.h)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD)/%.o: src/%.S
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 

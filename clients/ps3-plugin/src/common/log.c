@@ -12,7 +12,7 @@ typedef struct {
 
 static void put(out_t *o, char c)
 {
-	if (o->len + 1 < o->cap) /* keep room for the newline */
+	if (o->len + 1 < o->cap) /* keep room for the newline or terminator */
 		o->buf[o->len++] = c;
 }
 
@@ -103,6 +103,17 @@ static void write_file(const char *data, u32 len, s32 flags)
 		return;
 	sys_fs_write(fd, data, len, &written);
 	sys_fs_close(fd);
+}
+
+u32 str_format(char *buf, u32 size, const char *fmt, ...)
+{
+	out_t o = { buf, 0, size };
+	va_list ap;
+	va_start(ap, fmt);
+	format(&o, fmt, ap);
+	va_end(ap);
+	buf[o.len] = 0;
+	return o.len;
 }
 
 void log_init(const char *path)

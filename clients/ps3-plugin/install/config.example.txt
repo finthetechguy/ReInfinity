@@ -1,0 +1,19 @@
+# ReInfinity PS3 plugin settings. Save as /dev_hdd0/reinfinity/config.txt.
+# One "key = value" per line; lines starting with # are comments.
+# Changes apply the next time Disney Infinity starts.
+
+# false: the plugin loads but changes nothing.
+enabled = true
+
+# The ReInfinity server's IP address or domain, e.g. 192.168.0.18 (no http:// and no port).
+server =
+
+# The server's port (1-65535).
+port = 8080
+
+# Tell the game it's signed in to PSN when the console isn't, so it goes online.
+# A console that really is signed in is unaffected.
+psn_bypass = true
+
+# true: log every request to log.txt, not just the first of each URL.
+log = false

@@ -33,3 +33,15 @@ int strcmp(const char *a, const char *b)
 		a++, b++;
 	return (u8)*a - (u8)*b;
 }
+
+static u8 lower(u8 c)
+{
+	return c >= 'A' && c <= 'Z' ? c + ('a' - 'A') : c;
+}
+
+int strcasecmp(const char *a, const char *b)
+{
+	while (*a && lower(*a) == lower(*b))
+		a++, b++;
+	return lower(*a) - lower(*b);
+}

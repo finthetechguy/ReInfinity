@@ -41,10 +41,15 @@ static inline u64 lv2_syscall(u64 num, u64 a1, u64 a2, u64 a3, u64 a4, u64 a5, u
 #define CELL_FS_O_CREAT  0x000040
 #define CELL_FS_O_TRUNC  0x000200
 #define CELL_FS_O_APPEND 0x000400
+#define CELL_FS_ERROR_ENOENT 0x80010006
 
 static inline s32 sys_fs_open(const char *path, s32 flags, s32 *fd, u64 mode)
 {
 	return (s32)lv2_syscall(801, (uintptr_t)path, flags, (uintptr_t)fd, mode, 0, 0);
+}
+static inline s32 sys_fs_read(s32 fd, void *buf, u64 size, u64 *read)
+{
+	return (s32)lv2_syscall(802, fd, (uintptr_t)buf, size, (uintptr_t)read, 0, 0);
 }
 static inline s32 sys_fs_write(s32 fd, const void *buf, u64 size, u64 *written)
 {
@@ -130,3 +135,4 @@ void *memset(void *dst, int c, size_t n);
 void *memcpy(void *dst, const void *src, size_t n);
 size_t strlen(const char *s);
 int strcmp(const char *a, const char *b);
+int strcasecmp(const char *a, const char *b);

@@ -84,6 +84,12 @@ int prx_read_opd(u32 addr, lv2_opd_t *out)
 	return 1;
 }
 
+int prx_read_linked(u32 addr, lv2_opd_t *out)
+{
+	sys_page_attr_t attr;
+	return prx_read_opd(addr, out) && sys_memory_get_page_attribute(out->entry, &attr) == CELL_OK;
+}
+
 void prx_end_start(void)
 {
 	log_printf("module_start done");
@@ -105,9 +111,8 @@ int prx_check_imports(void)
 	int linked = 1;
 	for (const prx_import_t *i = __prx_imports; i->name; i++) {
 		lv2_opd_t opd;
-		sys_page_attr_t attr;
 		u32 slot = *i->slot;
-		if (prx_read_opd(slot, &opd) && sys_memory_get_page_attribute(opd.entry, &attr) == CELL_OK) {
+		if (prx_read_linked(slot, &opd)) {
 			log_printf("import %s: 0x%08x -> [0x%08x, toc 0x%08x]", i->name, slot, opd.entry, opd.toc);
 		} else {
 			log_printf("import %s: NOT LINKED (slot 0x%08x)", i->name, slot);
