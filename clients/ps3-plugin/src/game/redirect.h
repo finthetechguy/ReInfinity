@@ -1,6 +1,6 @@
 /* The redirect: hooks on cellHttpCreateTransaction (api.disney.com to the configured server),
-   sceNpManagerGetStatus and sceNpManagerGetContentRatingFlag (the PSN bypass), and
-   cellSysmoduleLoadModule (hooking again after a library load). */
+   sceNpManagerGetStatus, sceNpManagerGetContentRatingFlag and cellNetCtlNetStartDialogLoadAsync
+   (the PSN bypass), and cellSysmoduleLoadModule (hooking again after a library load). */
 #pragma once
 
 #include "config.h"

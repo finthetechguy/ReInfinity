@@ -14,11 +14,22 @@ typedef struct {
 	u8 reserved[4];
 } http_uri_t;
 
-enum { HOOK_HTTP, HOOK_NP, HOOK_RATING, HOOK_SYSMODULE, HOOK_COUNT };
+/* CellNetCtlNetStartDialogParam. */
+typedef struct {
+	u32 size;
+	s32 type;
+	u32 cid;
+} netstart_param_t;
+
+#define NETSTART_TYPE_NET 0
+#define NETSTART_TYPE_NP  1
+
+enum { HOOK_HTTP, HOOK_NP, HOOK_RATING, HOOK_NETSTART, HOOK_SYSMODULE, HOOK_COUNT };
 
 static u64 create_transaction(u64 trans_id, u64 client_id, u64 method, u64 uri);
 static u64 np_get_status(u64 status);
 static u64 content_rating(u64 restricted, u64 age);
+static u64 netstart_dialog(u64 param);
 static u64 load_module(u64 id);
 
 static hook_t hooks[HOOK_COUNT] = {
@@ -28,6 +39,8 @@ static hook_t hooks[HOOK_COUNT] = {
 		      .fn = (void (*)(void))np_get_status },
 	[HOOK_RATING] = { .lib = "sceNp", .nid = 0x6ee62ed2, .name = "sceNpManagerGetContentRatingFlag",
 			  .fn = (void (*)(void))content_rating },
+	[HOOK_NETSTART] = { .lib = "cellNetCtl", .nid = 0x04459230, .name = "cellNetCtlNetStartDialogLoadAsync",
+			    .fn = (void (*)(void))netstart_dialog },
 	[HOOK_SYSMODULE] = { .lib = "cellSysmodule", .nid = 0x32267a31, .name = "cellSysmoduleLoadModule",
 			     .fn = (void (*)(void))load_module },
 };
@@ -161,6 +174,27 @@ static u64 content_rating(u64 restricted_addr, u64 age_addr)
 	return fake ? CELL_OK : result;
 }
 
+/* At the title screen and before the pause menu's Online option, the game opens the system's
+   network start dialog asking for PSN. Without a PSN account that fails ("sign up for
+   Sony Entertainment Network"), so this asks for the network only, which finishes without
+   showing anything when the console is connected. */
+static u64 netstart_dialog(u64 param_addr)
+{
+	hook_enter();
+	const netstart_param_t *param = PTR(param_addr);
+	netstart_param_t copy;
+	int net_only = param && param->type == NETSTART_TYPE_NP;
+	if (net_only) {
+		copy = *param;
+		copy.type = NETSTART_TYPE_NET;
+	}
+	u64 result = lv2_call(hooks[HOOK_NETSTART].original, net_only ? (uintptr_t)&copy : param_addr, 0, 0, 0);
+	log_printf("cellNetCtlNetStartDialogLoadAsync: type %d%s (0x%x)", param ? param->type : -1,
+		   net_only ? ", asked for the network only (type 0)" : ", passed on", (u32)result);
+	hook_leave();
+	return result;
+}
+
 /* Loading a library fills (and so overwrites) its slots, so hook them again after each load. */
 static u64 load_module(u64 id)
 {
@@ -188,6 +222,7 @@ int redirect_start(const config_t *config)
 	hooks[HOOK_HTTP].wanted = 1;
 	hooks[HOOK_NP].wanted = cfg->psn_bypass;
 	hooks[HOOK_RATING].wanted = cfg->psn_bypass;
+	hooks[HOOK_NETSTART].wanted = cfg->psn_bypass;
 	hooks[HOOK_SYSMODULE].wanted = 1;
 	hooks_init(hooks, HOOK_COUNT);
 	if (!hooks[HOOK_HTTP].slot) {
@@ -225,7 +260,7 @@ static const char *state(void)
 
 u32 redirect_status(char *buf, u32 size)
 {
-	char active[160], psn[64], parental[64];
+	char active[192], psn[64], parental[64];
 	u32 len = 0;
 	active[0] = 0;
 	for (u32 i = 0; i < HOOK_COUNT; i++)
