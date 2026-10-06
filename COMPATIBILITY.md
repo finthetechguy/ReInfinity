@@ -10,6 +10,7 @@ _Platforms not listed are not supported by ReInfinity yet._
 | APPX (Windows Store) | ✅       | ➖       | ✅          | ✅           | ✅            | ✅          | ✅          | ✅             | ➖ *2           | 🔨          | ➖              |
 | iOS                  | ✅       | ✅       | ✅          | ❌ *1        | ✅            | ✅          | ❌ *1       | ❌ *1          | ➖ *2           | 🔨          | ➖              |
 | Wii U                | ✅       | ✅       | ✅          | ✅           | ✅            | ✅          | ✅          | ✅             | ✅              | ➖          | ✅              |
+| PS3                  | ✅       | ✅       | ✅          | ✅           | ✅            | ✅          | ✅          | ✅             | ✅              | ➖          | ✅              |
 
 ***1:** Client expects certain signatures.
 
