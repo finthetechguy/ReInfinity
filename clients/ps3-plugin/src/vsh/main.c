@@ -24,9 +24,12 @@ int module_start(u64 args, u64 argp)
 	(void)args;
 	(void)argp;
 	s32 mkdir_result = sys_fs_mkdir(RI_DIR, 0777);
+	sys_fs_unlink(RI_VSH_PREV); /* so the rename never has to replace a file */
+	s32 rename_result = sys_fs_rename(RI_VSH_LOG, RI_VSH_PREV);
 	log_init(RI_VSH_LOG);
 	log_printf("ReInfinity VSH plugin loaded (build " __DATE__ " " __TIME__ ")");
 	log_printf("mkdir " RI_DIR ": 0x%x (0x80010014 = already there)", mkdir_result);
+	log_printf("previous log kept as " RI_VSH_PREV ": 0x%x (0x80010006 = there was none)", rename_result);
 	prx_log_layout();
 	if (!prx_check_imports()) {
 		log_printf("staying idle: our imports weren't linked");

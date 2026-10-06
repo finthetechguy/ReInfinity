@@ -63,6 +63,10 @@ static inline s32 sys_fs_mkdir(const char *path, u32 mode)
 {
 	return (s32)lv2_syscall(811, (uintptr_t)path, mode, 0, 0, 0, 0);
 }
+static inline s32 sys_fs_rename(const char *from, const char *to)
+{
+	return (s32)lv2_syscall(812, (uintptr_t)from, (uintptr_t)to, 0, 0, 0, 0);
+}
 static inline s32 sys_fs_unlink(const char *path)
 {
 	return (s32)lv2_syscall(814, (uintptr_t)path, 0, 0, 0, 0, 0);
