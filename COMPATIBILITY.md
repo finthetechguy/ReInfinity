@@ -21,5 +21,6 @@ _Platforms not listed are not supported by ReInfinity yet._
 |--------|----------------------------|
 | ✅      | Working                    |
 | 🔨      | Not Finished/Incomplete    |
+| ❔      | Untested                   |
 | ❌      | Not Working                |
 | ➖      | Not Applicable to Platform |
