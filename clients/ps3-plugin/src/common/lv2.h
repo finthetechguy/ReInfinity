@@ -9,6 +9,7 @@ typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
+typedef int16_t s16;
 typedef int32_t s32;
 typedef int64_t s64;
 
@@ -113,6 +114,14 @@ __attribute__((noreturn)) static inline void sys_ppu_thread_exit_raw(u64 value)
 static inline u64 sys_time_get_timebase_frequency(void)
 {
 	return lv2_syscall(147, 0, 0, 0, 0, 0, 0);
+}
+/* The timebase counter, which runs from power-on. The Cell can briefly read 0; liblv2 retries too. */
+static inline u64 sys_timebase(void)
+{
+	u64 ticks = 0;
+	while (ticks == 0)
+		__asm__ volatile("mftb %0" : "=r"(ticks));
+	return ticks;
 }
 
 static inline void sys_timer_usleep(u64 usec)

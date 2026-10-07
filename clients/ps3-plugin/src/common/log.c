@@ -105,15 +105,29 @@ static void write_file(const char *data, u32 len, s32 flags)
 	sys_fs_close(fd);
 }
 
-u32 str_format(char *buf, u32 size, const char *fmt, ...)
+u32 str_vformat(char *buf, u32 size, const char *fmt, va_list ap)
 {
 	out_t o = { buf, 0, size };
-	va_list ap;
-	va_start(ap, fmt);
 	format(&o, fmt, ap);
-	va_end(ap);
 	buf[o.len] = 0;
 	return o.len;
+}
+
+u32 str_format(char *buf, u32 size, const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	u32 len = str_vformat(buf, size, fmt, ap);
+	va_end(ap);
+	return len;
+}
+
+u64 time_us(void)
+{
+	if (!timebase_hz)
+		timebase_hz = sys_time_get_timebase_frequency();
+	u64 ticks = sys_timebase();
+	return timebase_hz ? ticks / timebase_hz * 1000000 + ticks % timebase_hz * 1000000 / timebase_hz : 0;
 }
 
 void log_init(const char *path)
@@ -126,12 +140,7 @@ void log_printf(const char *fmt, ...)
 {
 	char buf[512];
 	out_t o = { buf, 0, sizeof(buf) };
-	u64 ticks = 0;
-	if (!timebase_hz)
-		timebase_hz = sys_time_get_timebase_frequency();
-	while (ticks == 0) /* the Cell can briefly read 0 here; liblv2 retries too */
-		__asm__ volatile("mftb %0" : "=r"(ticks));
-	u64 us = timebase_hz ? ticks / timebase_hz * 1000000 + ticks % timebase_hz * 1000000 / timebase_hz : 0;
+	u64 us = time_us();
 
 	put(&o, '[');
 	put_num(&o, us / 1000000, 10, 0, ' ', 0, 0);

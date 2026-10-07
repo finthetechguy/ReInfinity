@@ -15,6 +15,23 @@
       ]
     },
     {
+      "library": "sys_net",
+      "version": 1,
+      "attributes": 9,
+      "functions": [
+        "socket",
+        "setsockopt",
+        "bind",
+        "listen",
+        "accept",
+        "recv",
+        "send",
+        "socketpoll",
+        "socketclose",
+        "_sys_net_errno_loc"
+      ]
+    },
+    {
       "library": "vshtask",
       "version": 1,
       "attributes": 9,

@@ -1,5 +1,4 @@
-/* config.txt: one "key = value" per line, and lines starting with '#' are comments. Same rules
-   as PS3InfinityBase's slots.txt (CRLF and a UTF-8 BOM are fine, unknown keys are logged). */
+// config.txt: one "key = value" per line, and lines starting with '#' are comments.
 #include "config.h"
 #include "log.h"
 #include "paths.h"
@@ -48,7 +47,7 @@ static int parse_bool(const char *v, int *out)
 	return 1;
 }
 
-static int parse_port(const char *v, u32 *out)
+int config_parse_port(const char *v, u32 *out)
 {
 	u32 n = 0;
 	if (!*v)
@@ -122,9 +121,9 @@ static void parse_line(config_t *c, char *line, u32 number)
 	} else if (strcasecmp(key, "log") == 0) {
 		ok = parse_bool(value, &c->log_all);
 	} else if (strcasecmp(key, "port") == 0) {
-		ok = parse_port(value, &c->port);
+		ok = config_parse_port(value, &c->port);
 	} else if (strcasecmp(key, "web_port") == 0) {
-		ok = parse_port(value, &c->web_port);
+		ok = config_parse_port(value, &c->web_port);
 	} else if (strcasecmp(key, "server") == 0) {
 		c->server[0] = 0;
 		c->server_invalid = *value && !config_valid_host(value);

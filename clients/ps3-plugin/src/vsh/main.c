@@ -1,21 +1,40 @@
 /* The VSH (XMB) plugin, loaded at boot from boot_plugins.txt: watches for Disney Infinity and
-   loads the game module into it (game.c). Stage 4 adds the settings page. */
+   loads the game module into it (game.c), and serves the settings page (web.c). */
 #include "game.h"
 #include "log.h"
 #include "paths.h"
 #include "thread.h"
+#include "vsh.h"
+#include "web.h"
 
 #define MAIN_PRIO  3000
 #define MAIN_STACK 0x4000
-#define POLL_MS    1000
+#define POLL_US    1000000 /* how often game_poll runs */
 
 static thread_t main_thread;
 
+void notify(const char *msg)
+{
+	char text[384];
+	str_format(text, sizeof(text), "ReInfinity: %s", msg);
+	log_printf("notification: %s", text);
+	vshtask_notify(0, text);
+}
+
+/* One thread does both jobs, so the page and the game watcher never run at the same time. */
 static void plugin_main(thread_t *t)
 {
+	web_start();
 	log_printf("watching for Disney Infinity");
-	while (thread_sleep(t, POLL_MS))
-		game_poll();
+	u64 last_poll = time_us();
+	while (!t->stop) {
+		web_poll(t);
+		if (time_us() - last_poll >= POLL_US) {
+			last_poll = time_us();
+			game_poll();
+		}
+	}
+	web_stop();
 }
 
 /* Cobra runs this on a kernel-made thread, so it may only use what lv2.h allows. */

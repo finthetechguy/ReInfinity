@@ -26,3 +26,6 @@ void config_parse(config_t *c, char *text);
 
 /* Whether s is a bare IP address or domain: letters, digits, '.' and '-'. */
 int config_valid_host(const char *s);
+
+/* Parses a port, 1-65535, digits only. Returns 0 (leaving *out alone) if v isn't one. */
+int config_parse_port(const char *v, u32 *out);

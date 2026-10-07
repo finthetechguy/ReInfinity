@@ -8,6 +8,9 @@
 /* vshtask_A02D46E7: shows a notification on the XMB or over a game. The first argument is 0. */
 u64 vshtask_notify(s32 unk, const char *msg);
 
+/* Shows "ReInfinity: <msg>" that way and logs it (main.c). */
+void notify(const char *msg);
+
 /* vshmain_0624D3AE: the running game's process ID, or 0 when there's none. */
 u64 vsh_game_pid(void);
 

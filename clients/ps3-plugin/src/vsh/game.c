@@ -15,7 +15,6 @@
 #define START_WAIT  15 /* seconds for the module to write status.txt */
 #define HOOK_WAIT   60 /* seconds for the redirect to be in */
 
-/* PS3InfinityBase's install/titles.txt. Only BLUS30977 has been tested. */
 static const char builtin_titles[][10] = {
 	"BLES01842", "BLUS30977", "BLES01844", "BLES01843",                           /* 1.0 */
 	"BLES02065", "BLES02066", "BLUS31418", "BLES02064", "NPUB31465", "BLES02100", /* 2.0 */
@@ -34,6 +33,7 @@ static struct {
 } g;
 
 static config_t cfg;
+static game_status_t last;
 
 typedef struct {
 	const char *pid, *state, *message, *url;
@@ -46,10 +46,10 @@ static void set_phase(enum phase phase)
 	g.tries = 0;
 }
 
-static void notify(const char *msg)
+static void report(const char *msg)
 {
-	log_printf("notification: %s", msg);
-	vshtask_notify(0, msg);
+	str_format(last.result, sizeof(last.result), "%s", msg);
+	notify(msg);
 }
 
 /* The running game's title ID and name, from game_plugin's gameInfo as webMAN reads them. */
@@ -122,7 +122,7 @@ static void load(void)
 	s32 result = sys_fs_open(RI_GAME_PRX, CELL_FS_O_RDONLY, &fd, 0);
 	if (result != CELL_OK) {
 		log_printf("can't open " RI_GAME_PRX " (0x%x)", result);
-		notify("ReInfinity: can't find " RI_GAME_PRX);
+		report("can't find " RI_GAME_PRX);
 		set_phase(DONE);
 		return;
 	}
@@ -134,9 +134,9 @@ static void load(void)
 	if (result == CELL_OK) {
 		set_phase(WATCH);
 	} else if (++g.tries >= LOAD_TRIES) {
-		char msg[96];
-		str_format(msg, sizeof(msg), "ReInfinity: couldn't load the game module (0x%x)", result);
-		notify(msg);
+		char msg[64];
+		str_format(msg, sizeof(msg), "couldn't load the game module (0x%x)", result);
+		report(msg);
 		set_phase(DONE);
 	}
 }
@@ -150,12 +150,16 @@ static void found_title(const char *id, const char *name)
 		return;
 	}
 	log_printf("%s \"%s\" is Disney Infinity", id, name);
+	memcpy(last.id, id, sizeof(last.id));
+	memcpy(last.name, name, sizeof(last.name));
+	last.running = 1;
+	last.result[0] = 0;
 	if (!cfg.enabled) {
-		notify("ReInfinity: off (enabled = false in config.txt)");
+		report("off (enabled = false in config.txt)");
 		set_phase(DONE);
 	} else if (!cfg.server[0]) {
-		notify(cfg.server_invalid ? "ReInfinity: the server in config.txt isn't a valid IP address or domain"
-					  : "ReInfinity: no server is set in config.txt");
+		report(cfg.server_invalid ? "the server in config.txt isn't a valid IP address or domain"
+					  : "no server is set in config.txt");
 		set_phase(DONE);
 	} else {
 		set_phase(LOAD);
@@ -229,7 +233,7 @@ static void watch(void)
 		if (g.seconds >= START_WAIT && !g.warned) {
 			if (s.pid)
 				log_printf("status.txt is from process %s, not %u", s.pid, g.pid);
-			notify("ReInfinity: the game module didn't start (see log.txt)");
+			report("the game module didn't start (see log.txt)");
 			g.warned = 1;
 		}
 		return;
@@ -239,20 +243,19 @@ static void watch(void)
 		str_format(g.state, sizeof(g.state), "%s", s.state);
 	}
 	if (strcmp(s.state, "redirecting") == 0) {
-		str_format(msg, sizeof(msg), "ReInfinity: redirecting to %s", s.url);
-		notify(msg);
+		str_format(msg, sizeof(msg), "redirecting to %s", s.url);
+		report(msg);
 		set_phase(DONE);
 	} else if (strcmp(s.state, "error") == 0) {
-		str_format(msg, sizeof(msg), "ReInfinity: %s", s.message);
-		notify(msg);
+		report(s.message);
 		set_phase(DONE);
 	} else if (strcmp(s.state, "off") == 0) {
-		notify("ReInfinity: off (enabled = false in config.txt)");
+		report("off (enabled = false in config.txt)");
 		set_phase(DONE);
 	} else if (strcmp(s.state, "stopped") == 0) {
 		set_phase(DONE);
 	} else if (g.seconds >= HOOK_WAIT && !g.warned) {
-		notify("ReInfinity: the game isn't hooked yet (see log.txt)");
+		report("the game isn't hooked yet (see log.txt)");
 		g.warned = 1;
 	}
 }
@@ -267,6 +270,7 @@ void game_poll(void)
 			log_printf("game process %u started", pid);
 		g.pid = pid;
 		g.warned = 0;
+		last.running = 0;
 		g.state[0] = 0;
 		set_phase(pid ? TITLE : IDLE);
 	}
@@ -284,4 +288,9 @@ void game_poll(void)
 	default:
 		break;
 	}
+}
+
+const game_status_t *game_status(void)
+{
+	return &last;
 }
