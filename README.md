@@ -38,3 +38,6 @@ You can find the latest updates in compatibility at [COMPATIBILITY](COMPATIBILIT
 
 ## License
 Distributed under MIT license, see [LICENSE](LICENSE.md).
+
+### AI Use Disclosure
+AI tools (LLMs) are used in this project for development and research, however generated code is heavily human-monitored, tested and extensively tested to ensure the code is safe and reliable. Any code that has not been fully tested will be explicitly marked as so, such as in [COMPATIBILITY](COMPATIBILITY.md).
