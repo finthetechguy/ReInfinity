@@ -5,6 +5,7 @@
 #   make          compile, link and pack build/reinfinity_{game,vsh}.prx
 #   make sprx     also sign them as .sprx (scetool, see scripts/sign.sh)
 #   make info     dump both PRXs' tables with scripts/prxinfo.py
+#   make package  sign, then put the PS3's files in build/package/ and build/ReInfinity-PS3.zip
 #
 # Each module is signed with its own SELF header; override with e.g. `make sprx SIGN_game=vsh`.
 
@@ -63,6 +64,15 @@ $(BUILD)/reinfinity_%.prx: $(BUILD)/reinfinity_%.elf prx/%.json scripts/mkprx.py
 $(BUILD)/reinfinity_%.sprx: $(BUILD)/reinfinity_%.prx scripts/sign.sh
 	scripts/sign.sh $(SIGN_$*) $< $@
 
+# Laid out from the root of the PS3's hard drive. There's no config.txt, so copying never replaces
+# the player's settings.
+PACKAGE = $(BUILD)/package
+package: sprx
+	rm -rf $(PACKAGE) $(BUILD)/ReInfinity-PS3.zip
+	mkdir -p $(PACKAGE)/dev_hdd0/reinfinity
+	cp $(MODULES:%=$(BUILD)/reinfinity_%.sprx) install/config.example.txt $(PACKAGE)/dev_hdd0/reinfinity/
+	cd $(PACKAGE) && zip -qr ../ReInfinity-PS3.zip dev_hdd0
+
 info: all
 	@for m in $(MODULES); do python3 scripts/prxinfo.py $(BUILD)/reinfinity_$$m.prx; done
 
@@ -72,4 +82,4 @@ clean:
 # Keep the generated stubs and linked ELFs for debugging.
 .SECONDARY:
 
-.PHONY: all sprx info clean
+.PHONY: all sprx package info clean

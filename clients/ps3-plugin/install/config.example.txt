@@ -1,10 +1,8 @@
 # ReInfinity PS3 plugin settings: /dev_hdd0/reinfinity/config.txt
-# Change them on the settings page, http://<ps3-ip>:8090/, or edit this file.
-# Saving on the page rewrites this file, so comments you add here are lost.
-# One "key = value" per line; lines starting with # are comments.
+# Saving on the page rewrites this file!
 # Changes apply the next time Disney Infinity starts.
 
-# false: the plugin leaves the game alone.
+# false: the plugin does not affect the game.
 enabled = true
 
 # The ReInfinity server's IP address or domain, e.g. 192.168.0.18 (no http:// and no port).
@@ -24,5 +22,5 @@ log = false
 web_port = 8090
 
 # Which games the plugin loads into, as title IDs separated by commas. Leave it commented out
-# to use the built-in list: every Disney Infinity 1.0, 2.0 and 3.0 release.
+# to use the built-in list.
 # titles = BLUS30977, BLES01843
