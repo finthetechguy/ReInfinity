@@ -37,7 +37,7 @@ Settings are saved to `/dev_hdd0/reinfinity/config.txt`, which can also be edite
 
 ## Limitations
 - No multiplayer.
-- Without a PSN sign-in, the game can only log in to ReInfinity with a username and password.
+- Without a PSN sign-in, the game does not remember your login, even when `consoleAccountLinking` is enabled.
 - HTTP only as the PS3's SSL is too old for current certificates.
 - The settings page has no password, make sure that port (8090) isn't exposed.
 
