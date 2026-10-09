@@ -1,0 +1,18 @@
+{
+  "module_name": "ReInfinity_Game",
+  "version": [1, 1],
+  "attributes": 0,
+  "start": "module_start",
+  "stop": "module_stop",
+  "imports": [
+    {
+      "library": "sysPrxForUser",
+      "version": 1,
+      "attributes": 9,
+      "functions": [
+        "sys_ppu_thread_create",
+        "sys_ppu_thread_exit"
+      ]
+    }
+  ]
+}

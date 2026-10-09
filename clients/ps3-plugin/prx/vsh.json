@@ -1,0 +1,60 @@
+{
+  "module_name": "ReInfinity_VSH",
+  "version": [1, 1],
+  "attributes": 0,
+  "start": "module_start",
+  "stop": "module_stop",
+  "imports": [
+    {
+      "library": "sysPrxForUser",
+      "version": 1,
+      "attributes": 9,
+      "functions": [
+        "sys_ppu_thread_create",
+        "sys_ppu_thread_exit"
+      ]
+    },
+    {
+      "library": "sys_net",
+      "version": 1,
+      "attributes": 9,
+      "functions": [
+        "socket",
+        "setsockopt",
+        "bind",
+        "listen",
+        "accept",
+        "recv",
+        "send",
+        "socketpoll",
+        "socketclose",
+        "_sys_net_errno_loc"
+      ]
+    },
+    {
+      "library": "vshtask",
+      "version": 1,
+      "attributes": 9,
+      "functions": [
+        { "nid": "0xa02d46e7", "symbol": "vshtask_notify" }
+      ]
+    },
+    {
+      "library": "vshmain",
+      "version": 1,
+      "attributes": 1,
+      "functions": [
+        { "nid": "0x0624d3ae", "symbol": "vsh_game_pid" }
+      ]
+    },
+    {
+      "library": "paf",
+      "version": 1,
+      "attributes": 1,
+      "functions": [
+        { "nid": "0xf21655f3", "symbol": "paf_view_find" },
+        { "nid": "0x23afb290", "symbol": "paf_view_get_interface" }
+      ]
+    }
+  ]
+}
