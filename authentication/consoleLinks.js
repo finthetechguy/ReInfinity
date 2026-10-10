@@ -2,10 +2,10 @@ const users = require("../db/users");
 const config = require("../util/config");
 
 // Console account IDs are sent as assertion_id
-// TODO: Figure out the other console formats like X360
 const PLATFORM_ID_FORMATS = {
     wiiu: /^(?!00000000)[0-9A-F]{8}$/, // Nintendo Network principal ID
-    psn: /^-?[1-9][0-9]{0,18}$/ // PSN account ID, printed by the PS3 client as a signed 64-bit decimal
+    psn: /^-?[1-9][0-9]{0,18}$/, // PSN account ID, printed by the PS3 client as a signed 64-bit decimal
+    xbox: /^-?[1-9][0-9]{0,18}$/ // Xbox 360 XUID as a signed 64-bit decimal (negative for offline accounts)
 };
 
 function getConsoleAccount(body) {

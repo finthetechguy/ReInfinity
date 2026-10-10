@@ -11,6 +11,7 @@ _Platforms not listed are not supported by ReInfinity yet._
 | iOS                  | ✅       | ✅       | ✅          | ❌ *1        | ✅            | ✅          | ❌ *1       | ❌ *1          | ➖ *2           | 🔨          | ➖              |
 | Wii U                | ✅       | ✅       | ✅          | ✅           | ✅            | ✅          | ✅          | ✅             | ✅              | ➖          | ✅              |
 | PS3                  | ✅       | ✅       | ✅          | ✅           | ✅            | ✅          | ✅          | ✅             | ✅              | ➖          | ✅              |
+| Xbox 360             | ✅❔    | ✅❔     | ✅❔       | ✅❔         | ✅❔          | ✅❔       | ✅❔       | ✅❔           | ✅❔           | ➖          | ✅❔            |
 
 ***1:** Client expects certain signatures.
 

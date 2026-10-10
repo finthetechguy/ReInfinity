@@ -15,7 +15,7 @@ const PATHS = {
 // Unimplemented services still go to this server so their requests show up in the log.
 const GAMES = {
     in1: {
-        platforms: ["ios", "win8rt", "wiiu", "ps3"],
+        platforms: ["ios", "win8rt", "wiiu", "ps3", "x360"],
         services: {
             url_authentication: PATHS.auth,
             url_feed_ticker: PATHS.news,
