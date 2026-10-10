@@ -13,6 +13,8 @@ _Platforms not listed are not supported by ReInfinity yet._
 | PS3                  | ✅       | ✅       | ✅          | ✅           | ✅            | ✅          | ✅          | ✅             | ✅              | ➖          | ✅              |
 | Xbox 360             | ✅❔    | ✅❔     | ✅❔       | ✅❔         | ✅❔          | ✅❔       | ✅❔       | ✅❔           | ✅❔           | ➖          | ✅❔            |
 
+**_Wii and Nintendo 3DS variants do not have online features._**
+
 ***1:** Client expects certain signatures.
 
 ***2:** The game menu never requests toybox screenshots on iOS or Windows. The server still stores the screenshots uploaded from them for platforms that show them (e.g. consoles).
