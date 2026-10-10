@@ -1,4 +1,4 @@
-# armv7 as Disney Infinity 1.0 is 32-bit
+# armv7 as Disney Infinity 1.0 and 2.0 are 32-bit
 TARGET := iphone:clang:9.3:6.0
 ARCHS := armv7
 

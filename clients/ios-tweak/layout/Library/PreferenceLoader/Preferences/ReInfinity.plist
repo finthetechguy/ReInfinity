@@ -17,7 +17,7 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>footerText</key>
-			<string>Redirects Disney Infinity 1.0 server requests to specified server and port. Changes apply the next time the game starts.</string>
+			<string>Redirects Disney Infinity 1.0 and 2.0 server requests to specified server and port. Changes apply the next time the game starts.</string>
 		</dict>
 		<dict>
 			<key>cell</key>

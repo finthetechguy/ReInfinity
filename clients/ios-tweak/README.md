@@ -1,16 +1,16 @@
 # ReInfinity iOS tweak
 
-A jailbreak tweak that connects Disney Infinity 1.0 (iOS) to a ReInfinity (or any other) server. It hooks onto the networking API the game uses and doesn't modify any game files.
+A jailbreak tweak that connects Disney Infinity 1.0 and 2.0 (iOS) to a ReInfinity (or any other) server. It hooks onto the networking API the game uses and doesn't modify any game files.
 
 What it does:
-- **Redirects API host:** requests to `https://api.disney.com/...` get redirected to `http://<server>:<port>/...` instead, with the path and query unchanged. This covers the config URL (`/infinity/config/v1/ios/`), whose response supplies every other service URL, and any other URL which uses that domain anyway regardless of the config response.
+- **Redirects API host:** requests to `https://api.disney.com/...` get redirected to `http://<server>:<port>/...` instead, with the path and query unchanged. This covers the config URL (`/infinity/config/v1/ios/` for 1.0, `/coregames/config/v1/infinity2/ios/` for 2.0), whose response supplies every other service URL, and any other URL which uses that domain anyway regardless of the config response.
 
-Disney Infinity 2.0 and 3.0 should be supported in the future.
+2.0 (`com.disney.disneyinfinity2`) is untested. 3.0 should be supported in the future.
 
 ## Install
 Needs a jailbroken device on iOS 6.0 or later with Cydia Substrate and PreferenceLoader. Tested on an iOS 10.3.3 with Disney Infinity 1.0, version 1.5 (`com.disney.DisneyInfinity`).
 
-1. Copy the `.deb` to the device and install it, for example by opening it in Filza, or with `dpkg -i com.reinfinity.ios_1.0.0_iphoneos-arm.deb` as root.
+1. Copy the `.deb` to the device and install it, for example by opening it in Filza, or with `dpkg -i com.reinfinity.ios_1.1.0_iphoneos-arm.deb` as root.
 2. Open **Settings > ReInfinity**, enter the server's IP address or domain and set the port.
 3. If Disney Infinity is already running, close it from the app switcher, then restart it.
 

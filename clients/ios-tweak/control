@@ -1,6 +1,6 @@
 Package: com.reinfinity.ios
 Name: ReInfinity
-Version: 1.0.0
+Version: 1.1.0
 Architecture: iphoneos-arm
 Description: Connects Disney Infinity to a ReInfinity server instead of Disney's shutdown servers.
 Maintainer: finthetechguy

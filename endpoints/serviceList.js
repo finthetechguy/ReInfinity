@@ -3,10 +3,8 @@ const PATHS = {
     auth: "/auth/",
     news: "/news/",
     profiles: "/profile/",
-    entitlement: "/profile",
     avatar: "/profile/avatar",
     savedGames: "/ugc/",
-    ugc: "/ugc/",
     ugcPublicIn1: "/ugc/public/in1/",
     ugcPrivateIn1: "/ugc/private/in1/",
     geoip: "/geoip/"
@@ -47,24 +45,26 @@ const GAMES = {
             "url_togo_videos"
         ]
     },
-    // TODO: check what services IN2 uses
     in2: {
         platforms: ["infinity2/ios"],
         services: {
             url_cg_did_auth: PATHS.auth,
+            url_geo_ip_locale: PATHS.geoip,
             url_inf_ticker: PATHS.news,
-            url_inf_ugc: PATHS.ugc,
-            url_inf_profile: PATHS.profiles,
-            url_inf_entitlement: PATHS.entitlement,
             url_social_server_avatar: PATHS.avatar
         },
         placeholders: [
+            "url_inf_ugc",
+            "url_inf_profile",
+            "url_inf_entitlement",
             "url_inf_leaderboard",
             "url_cg_did_create",
             "domain_cg_natneg",
             "url_cg_friends",
             "url_cdn_videos",
+            "url_cdn_latest_game_version",
             "url_social_phrase_chat",
+            "url_social_report_player",
             "url_cg_bi",
             "url_cg_cleanspeak",
             "url_cg_p2p_session",
@@ -72,14 +72,21 @@ const GAMES = {
             "url_activity_stream_icons",
             "url_activity_stream_links",
             "url_social_like",
-            "url_geo_ip_locale",
             "url_geo_pixel"
-        ]
+        ],
+        // XMPP friends/chat not planned to be supported yet.
+        hosts: {
+            social_host_friend: null,
+            social_server_friend: 5420
+        },
+        extras: {
+            big_endians: ["x360", "ps3", "wiiu"]
+        }
     }
 };
 
 function buildServiceList(game, baseUrl) {
-    const { services, placeholders } = GAMES[game];
+    const { services, placeholders, hosts = {}, extras = {} } = GAMES[game];
     const list = {};
     for (const [key, servicePath] of Object.entries(services)) {
         list[key] = baseUrl + servicePath;
@@ -87,7 +94,11 @@ function buildServiceList(game, baseUrl) {
     for (const key of placeholders) {
         list[key] = `${baseUrl}/${key}`;
     }
-    return list;
+    const hostname = new URL(baseUrl).hostname;
+    for (const [key, port] of Object.entries(hosts)) {
+        list[key] = port ? `${hostname}:${port}` : hostname;
+    }
+    return { ...list, ...extras };
 }
 
 module.exports = {

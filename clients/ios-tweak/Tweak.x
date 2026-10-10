@@ -3,7 +3,7 @@
 #define LOG_PREFIX @"[ReInfinity]"
 
 // Keep in step with Version in control.
-static NSString *const kVersion = @"1.0.0";
+static NSString *const kVersion = @"1.1.0";
 static NSString *const kPrefsDomain = @"com.reinfinity.ios";
 static NSString *const kPrefsPath = @"/var/mobile/Library/Preferences/com.reinfinity.ios.plist";
 static const NSInteger kDefaultPort = 8080;
@@ -15,6 +15,7 @@ static NSString *const kRewriteHosts[] = {
 
 static const char *const kGameBundleIds[] = {
     "com.disney.DisneyInfinity",
+    "com.disney.disneyinfinity2",
 };
 
 // Marks our own forwarded request so the protocol doesn't pick it up again.
