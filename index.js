@@ -69,6 +69,9 @@ app.use("/ugc", toyboxRouter);
 app.use("/geoip", geoipRouter);
 app.use("/infinity/entitlement/v1", entitlementsRouter);
 
+// telementry stub
+app.post(["/coregames/bi/v2/batch", "/dismo/bi/v1"], (req, res) => res.sendStatus(204));
+
 app.get("/", (req, res) => {
   res.type("text").send("Use on Disney Infinity client!");
 });

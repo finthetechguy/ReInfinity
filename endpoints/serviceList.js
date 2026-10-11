@@ -53,11 +53,12 @@ const GAMES = {
             url_inf_ticker: PATHS.news,
             url_social_server_avatar: PATHS.avatar
         },
+        // trailing slash used when the client appends sub-paths directly (e.g. "platforms").
         placeholders: [
-            "url_inf_ugc",
-            "url_inf_profile",
+            "url_inf_ugc/",
+            "url_inf_profile/",
             "url_inf_entitlement",
-            "url_inf_leaderboard",
+            "url_inf_leaderboard/",
             "url_cg_did_create",
             "domain_cg_natneg",
             "url_cg_friends",
@@ -67,7 +68,7 @@ const GAMES = {
             "url_social_report_player",
             "url_cg_bi",
             "url_cg_cleanspeak",
-            "url_cg_p2p_session",
+            "url_cg_p2p_session/",
             "url_activity_stream_social",
             "url_activity_stream_icons",
             "url_activity_stream_links",
@@ -91,8 +92,8 @@ function buildServiceList(game, baseUrl) {
     for (const [key, servicePath] of Object.entries(services)) {
         list[key] = baseUrl + servicePath;
     }
-    for (const key of placeholders) {
-        list[key] = `${baseUrl}/${key}`;
+    for (const placeholder of placeholders) {
+        list[placeholder.replace(/\/$/, "")] = `${baseUrl}/${placeholder}`;
     }
     const hostname = new URL(baseUrl).hostname;
     for (const [key, port] of Object.entries(hosts)) {
