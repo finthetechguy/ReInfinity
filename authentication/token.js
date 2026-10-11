@@ -95,11 +95,20 @@ async function authenticateToken(req, res, next) {
     next();
 }
 
+// Like authenticateToken, but signed-out requests continue with req.user unset instead of a 401.
+async function optionalToken(req, res, next) {
+    const token = getAccessToken(req);
+    const swid = token == null ? null : getSessionSwid(token);
+    req.user = swid ? await users.getUserBySwid(swid) : null;
+    next();
+}
+
 module.exports = {
     router,
     createSession,
     createRefreshToken,
     useRefreshToken,
     sendInvalidToken,
-    authenticateToken
+    authenticateToken,
+    optionalToken
 }

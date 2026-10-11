@@ -4,10 +4,10 @@ const path = require("path");
 const fs = require("fs");
 const fsp = require("fs/promises");
 const zlib = require("zlib");
-const crypto = require("crypto");
 const token = require("../authentication/token");
 const { disneyError } = require("../util/disneyErrors");
-const { openDb, runDb, getDb, allDb } = require("../db/sqlite");
+const { runDb, getDb, allDb } = require("../db/sqlite");
+const { SAFE_ID, MAX_SCREENSHOT_BYTES, toSafeId, withDb, parseScreenshot, parseObjectCounts, screenshotPath } = require("./common");
 const router = express.Router();
 
 // Constants for public (Disney Toyboxes) toybox data
@@ -15,26 +15,12 @@ const PUBLIC_PATH = path.join(__dirname, "..", "ugc", "public_toyboxes");
 const PUBLIC_DB = path.join(PUBLIC_PATH, "db.sqlite3")
 const PRIVATE_PATH = path.join(__dirname, "private_toyboxes");
 
-// Toybox IDs double as file names, so they may only contain characters that are safe in a path.
-const SAFE_ID = /^[A-Za-z0-9_-]{1,64}$/;
-const WINDOWS_RESERVED_NAME = /^(CON|PRN|AUX|NUL|COM\d|LPT\d)$/i;
 const SWID = /^\d{8}$/;
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const MAX_TOYBOX_BYTES = 32 * 1024 * 1024;
-const MAX_SCREENSHOT_BYTES = 2 * 1024 * 1024;
-const SCREENSHOT_KEYS = ["width", "height", "size", "format", "platform"];
 
 const LATER_COLUMNS = { zone: "TEXT", screenshot_info: "TEXT", object_counts: "TEXT" };
-const MAX_OBJECT_COUNT_ENTRIES = 10000;
-
-function toSafeId(name) {
-    const id = String(name).replace(/[^A-Za-z0-9_-]/g, "").slice(0, 48);
-    if (!id || WINDOWS_RESERVED_NAME.test(id)) {
-        return crypto.randomBytes(6).toString("hex");
-    }
-    return id;
-}
 
 function getUserPaths(user) {
     const swid = String(user.swid);
@@ -57,16 +43,6 @@ function sendBadUpload(res, reason) {
 // Check if data has the header/magic of a gzip. Toybox level data is encoded this way.
 function isGzip(buf) {
     return Buffer.isBuffer(buf) && buf.length >= 2 && buf[0] === 0x1f && buf[1] === 0x8b;
-}
-
-// Closes the DB even if fn throws.
-async function withDb(dbPath, fn) {
-    const db = await openDb(dbPath);
-    try {
-        return await fn(db);
-    } finally {
-        db.close();
-    }
 }
 
 // Creates a toybox database including it's folder if not already created.
@@ -107,30 +83,6 @@ async function createDb(dbPath) {
 }
 
 const ITEM_COLUMNS = "_id, name, desc, type, version, creator, zone, orig_size, comp_size, creation_time, last_update_time";
-
-// screenshot is a raw texture the game decodes using these values
-function parseScreenshot(info, buffer) {
-    if (!info || !buffer || buffer.length === 0 || buffer.length > MAX_SCREENSHOT_BYTES) return null;
-    if (!SCREENSHOT_KEYS.every(k => Number.isInteger(info[k]) && info[k] > 0)) return null;
-    if (info.size !== buffer.length) return null;
-
-    const cleanInfo = Object.fromEntries(SCREENSHOT_KEYS.map(k => [k, info[k]]));
-    return { info: cleanInfo, buffer };
-}
-
-function parseObjectCounts(counts) {
-    if (!counts || typeof counts !== "object" || Array.isArray(counts)) return "{}";
-
-    const clean = {};
-    for (const [id, count] of Object.entries(counts).slice(0, MAX_OBJECT_COUNT_ENTRIES)) {
-        if (/^\d{1,10}$/.test(id) && Number.isInteger(count) && count >= 0) clean[id] = count;
-    }
-    return JSON.stringify(clean);
-}
-
-function screenshotPath(dir, id) {
-    return path.join(dir, `${id}.screenshot`);
-}
 
 function toItem(row) {
     return {

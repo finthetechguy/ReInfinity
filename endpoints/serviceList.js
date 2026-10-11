@@ -7,6 +7,7 @@ const PATHS = {
     savedGames: "/ugc/",
     ugcPublicIn1: "/ugc/public/in1/",
     ugcPrivateIn1: "/ugc/private/in1/",
+    ugcIn2: "/ugc/in2/",
     geoip: "/geoip/"
 };
 
@@ -51,11 +52,11 @@ const GAMES = {
             url_cg_did_auth: PATHS.auth,
             url_geo_ip_locale: PATHS.geoip,
             url_inf_ticker: PATHS.news,
+            url_inf_ugc: PATHS.ugcIn2,
             url_social_server_avatar: PATHS.avatar
         },
         // trailing slash used when the client appends sub-paths directly (e.g. "platforms").
         placeholders: [
-            "url_inf_ugc/",
             "url_inf_profile/",
             "url_inf_entitlement",
             "url_inf_leaderboard/",

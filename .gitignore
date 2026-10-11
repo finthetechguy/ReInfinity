@@ -3,3 +3,5 @@ db/users.sqlite3*
 config.json
 ugc/private_toyboxes/
 ugc/public_toyboxes/
+ugc/public_toyboxes_in2/
+ugc/private_toyboxes_in2/

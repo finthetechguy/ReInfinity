@@ -13,6 +13,7 @@ const platformsRouter = require("./profile/platforms");
 const newsRouter = require("./news/news");
 const avatarRouter = require("./profile/avatar");
 const toyboxRouter = require("./ugc/toybox");
+const toyboxIn2Router = require("./ugc/toyboxIn2");
 const geoipRouter = require("./misc/geoip");
 const entitlementsRouter = require("./profile/entitlements");
 
@@ -65,6 +66,7 @@ app.use("/auth", signupRouter);
 app.use("/profile/platforms", platformsRouter);
 app.use("/news", newsRouter);
 app.use("/profile/avatar", avatarRouter);
+app.use("/ugc/in2", toyboxIn2Router);
 app.use("/ugc", toyboxRouter);
 app.use("/geoip", geoipRouter);
 app.use("/infinity/entitlement/v1", entitlementsRouter);
