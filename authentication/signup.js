@@ -21,6 +21,25 @@ router.get("/compliance", (req, res) => {
     });
 });
 
+router.post("/check", (req, res) => {
+    const { birthYear } = req.body || {};
+    const isChild = getAgeBand(String(birthYear)) === "CHILD";
+    res.json({
+        compliance: {
+            fields: {
+                profile: { parentEmail: { use: isChild ? "REQUIRED" : "OPTIONAL" } }
+            },
+            legalRequirements: {
+                CREATE: {
+                    cookiePermissions: { TARGETING_ADVERTISING: { permissionDefault: "OPT_OUT" } }
+                }
+            }
+        },
+        legal: { documents: {} },
+        geolocation: { countryAlpha2: "US" }
+    });
+});
+
 router.post("/create", async (req, res) => {
     const userData = req.body;
 
