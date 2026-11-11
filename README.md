@@ -1,5 +1,5 @@
-<h1 align="center">ReInfinity</h1>
-<p align="center"><i>A reimplementation of Disney Infinity's servers to bring back Toybox share and more.</i></p>
+# ReInfinity
+A reimplementation of Disney Infinity's servers to bring back Toybox share and more.
 
 This project aims to accurately provide an HTTP API and plugins/tweaks for Disney Infinity games 1.0/2.0/3.0 on various platforms to restore functionality which became inaccessible after the original Disney servers were shut down.
 > **Disclaimer:** This repository is a fan-made project. It is not affiliated with or endorsed by Disney or partners and all associated names, and distinct properties are the sole property of Disney.
